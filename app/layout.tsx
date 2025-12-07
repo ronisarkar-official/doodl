@@ -24,10 +24,10 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-	metadataBase: new URL('https://doodl-game.vercel.app'), // Replace with actual domain
+	metadataBase: new URL('https://doodl.onrender.com'), // Replace with actual domain
 	title: {
-		default: 'doodl - Multiplayer Draw & Guess Game',
-		template: '%s | doodl',
+		default: 'Doodl - Multiplayer Draw & Guess Game',
+		template: '%s ',
 	},
 	description:
 		'Join the fun! Sketch your masterpieces and guess what others are drawing in real-time. The most aesthetic drawing game on the web.',
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
 	openGraph: {
 		type: 'website',
 		locale: 'en_US',
-		url: 'https://doodl-game.vercel.app',
+		url: 'https://doodl.onrender.com',
 		title: 'doodl - Multiplayer Draw & Guess Game',
 		description:
 			'Join the fun! Sketch your masterpieces and guess what others are drawing in real-time.',

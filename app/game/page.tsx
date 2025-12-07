@@ -3,7 +3,6 @@
 import React, { Suspense, useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { LogOut, Users, ChevronDown } from 'lucide-react';
 import Canvas from '../components/Canvas';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -80,7 +79,7 @@ function GameContent() {
 				{/* Left: Logo & Room Info */}
 				<div className="flex items-center gap-2 sm:gap-4 min-w-0 shrink-0">
 					{/* Logo */}
-					<div className="hidden sm:flex items-center gap-1.5 sm:gap-2.5">
+					<div className="flex items-center gap-1.5 sm:gap-2.5">
 						<div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-lg shadow-blue-500/20">
 							GG
 						</div>
@@ -153,13 +152,13 @@ function GameContent() {
 
 					<div className="w-px h-5 sm:h-6 bg-border/50 hidden sm:block"></div>
 
-					{/* Exit Button */}
-					<Link
+					{/* Exit Button  do to change this code*/}
+					<a
 						href="/"
-						className="hidden sm:flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-destructive p-2 sm:px-3 sm:py-1.5 rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium hover:bg-destructive/10">
+						className="flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-destructive p-2 sm:px-3 sm:py-1.5 rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium hover:bg-destructive/10">
 						<LogOut className="w-4 h-4" />
 						<span className="hidden sm:inline">Exit</span>
-					</Link>
+					</a>
 				</div>
 			</div>
 

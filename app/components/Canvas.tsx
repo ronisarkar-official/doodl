@@ -132,17 +132,31 @@ export default function Canvas() {
 		// setHistoryIndex(0);
 	}, [canvasRef]);
 
-	const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
+	const getCanvasCoords = (
+		e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+	) => {
 		const canvas = canvasRef.current;
 		if (!canvas) return { x: 0, y: 0 };
 		const rect = canvas.getBoundingClientRect();
+		
+		let clientX, clientY;
+		if ('touches' in e) {
+			clientX = e.touches[0].clientX;
+			clientY = e.touches[0].clientY;
+		} else {
+			clientX = e.clientX;
+			clientY = e.clientY;
+		}
+
 		return {
-			x: (e.clientX - rect.left) * (canvas.width / rect.width),
-			y: (e.clientY - rect.top) * (canvas.height / rect.height),
+			x: (clientX - rect.left) * (canvas.width / rect.width),
+			y: (clientY - rect.top) * (canvas.height / rect.height),
 		};
 	};
 
-	const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+	const startDrawing = (
+		e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+	) => {
 		if (gamePhase !== 'drawing' || !isDrawer) return;
 		const coords = getCanvasCoords(e);
 		lastPos.current = coords;
@@ -163,7 +177,9 @@ export default function Canvas() {
 		}
 	};
 
-	const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+	const draw = (
+		e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+	) => {
 		if (!isDrawing || gamePhase !== 'drawing' || tool === 'fill' || !isDrawer)
 			return;
 		const canvas = canvasRef.current;
@@ -278,12 +294,15 @@ export default function Canvas() {
 					ref={canvasRef}
 					width={800}
 					height={600}
-					className="w-full"
-					style={{ aspectRatio: '4/2.5', cursor: canvasCursor }}
+					className="w-full touch-none select-none"
+					style={{ aspectRatio: '4/2.5', cursor: canvasCursor, touchAction: 'none' }}
 					onMouseDown={startDrawing}
 					onMouseMove={draw}
 					onMouseUp={stopDrawing}
 					onMouseLeave={stopDrawing}
+					onTouchStart={startDrawing}
+					onTouchMove={draw}
+					onTouchEnd={stopDrawing}
 				/>
 				{gamePhase !== 'drawing' && (
 					<div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center">

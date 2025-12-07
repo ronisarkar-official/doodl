@@ -70,7 +70,7 @@ async function fetchRemoteWords() {
 	try {
 		// Fetching a list of common English nouns from a reliable GitHub raw source
 		const response = await fetch(
-			'https://raw.githubusercontent.com/psobko/Common-English-Nouns/master/main.txt',
+			'https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english-no-swears.txt',
 		);
 
 		if (!response.ok) {
