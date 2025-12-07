@@ -345,7 +345,7 @@ export default function Canvas() {
 				<motion.div
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
-					className="flex items-center justify-center gap-1 p-2 bg-card rounded-xl shadow-md border border-border">
+					className="flex flex-wrap items-center justify-center gap-1 p-2 bg-card rounded-xl shadow-md border border-border">
 					{/* Color Picker Dropdown */}
 					<div className="relative">
 						<button

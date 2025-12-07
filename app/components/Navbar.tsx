@@ -11,7 +11,7 @@ export default function Navbar() {
 	const [isOpen, setIsOpen] = useState(false);
 	const pathname = usePathname();
 
-	const isGamePage = pathname === '/game';
+	const isGamePage = pathname === '/game' || pathname?.startsWith('/game/');
 
 	// Prevent body scroll when mobile menu is open
 	useEffect(() => {
@@ -41,7 +41,7 @@ export default function Navbar() {
 			<nav
 				className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
 					isGamePage
-						? 'bg-transparent pointer-events-none'
+						? 'bg-transparent pointer-events-none hidden'
 						: 'glass border-b border-border/50'
 				}`}>
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

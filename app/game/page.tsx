@@ -73,9 +73,9 @@ function GameContent() {
 	};
 
 	return (
-		<div className="h-screen w-screen bg-background text-foreground flex flex-col overflow-hidden">
+		<div className="h-[100dvh] w-screen bg-background text-foreground flex flex-col overflow-hidden">
 			{/* Top Bar - macOS Style */}
-			<div className="h-12 sm:h-14 border-b border-border/50 glass flex items-center justify-between px-2 sm:px-4 z-10">
+			<div className="h-20 sm:h-14 border-b border-border/50 glass flex items-center justify-between px-2 sm:px-4 z-10">
 				{/* Left: Logo & Room Info */}
 				<div className="flex items-center gap-2 sm:gap-4 min-w-0 shrink-0">
 					{/* Logo */}
@@ -155,7 +155,7 @@ function GameContent() {
 					{/* Exit Button  do to change this code*/}
 					<a
 						href="/"
-						className="flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-destructive p-2 sm:px-3 sm:py-1.5 rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium hover:bg-destructive/10">
+						className="hidden sm:flex items-center gap-1 sm:gap-2 text-muted-foreground hover:text-destructive p-2 sm:px-3 sm:py-1.5 rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium hover:bg-destructive/10">
 						<LogOut className="w-4 h-4" />
 						<span className="hidden sm:inline">Exit</span>
 					</a>
