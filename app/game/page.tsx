@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { LogOut, Users, ChevronDown } from 'lucide-react';
 import Canvas from '../components/Canvas';
+import EmoteReactions from '../components/EmoteReactions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Chat from '../components/Chat';
 import PlayerList from '../components/PlayerList';
@@ -272,8 +273,11 @@ function GameContent() {
 						</div>
 					) : (
 						<div className="flex-1 flex items-center justify-center p-4 bg-secondary/20">
-							<div className="relative shadow-2xl rounded-2xl overflow-hidden border border-border/30">
-								<Canvas />
+							<div className="flex flex-col items-center gap-2">
+								<div className="relative shadow-2xl rounded-2xl overflow-hidden border border-border/30">
+									<Canvas />
+								</div>
+								<EmoteReactions />
 							</div>
 						</div>
 					)}

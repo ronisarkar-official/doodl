@@ -623,6 +623,18 @@ app.prepare().then(() => {
 			socket.to(socket.roomId).emit('clearCanvas');
 		});
 
+		// Canvas sync (for undo/redo - sends full canvas state)
+		socket.on('canvasSync', (imageDataUrl) => {
+			const room = rooms.get(socket.roomId);
+			if (!room) return;
+
+			const drawer = room.players[room.currentDrawerIndex];
+			if (!drawer || drawer.id !== socket.id) return;
+
+			// Broadcast canvas state to all other players
+			socket.to(socket.roomId).emit('canvasSync', imageDataUrl);
+		});
+
 		// Drawing reaction (like/dislike)
 		socket.on('drawingReaction', (reaction) => {
 			const room = rooms.get(socket.roomId);
@@ -647,6 +659,58 @@ app.prepare().then(() => {
 			};
 			room.chatMessages.push(reactionMessage);
 			io.to(socket.roomId).emit('chatMessage', reactionMessage);
+		});
+
+		// Lobby chat - messages during lobby phase
+		socket.on('lobbyMessage', (text) => {
+			const room = rooms.get(socket.roomId);
+			if (!room || room.gamePhase !== 'lobby') return;
+
+			const player = room.players.find((p) => p.id === socket.id);
+			if (!player) return;
+
+			const message = {
+				id: Date.now().toString(),
+				playerId: player.id,
+				playerName: player.name,
+				text: text,
+				isCorrect: false,
+				isSystem: false,
+			};
+			room.chatMessages.push(message);
+			io.to(socket.roomId).emit('chatMessage', message);
+		});
+
+		// Emote reactions during drawing
+		socket.on('sendEmote', (emote) => {
+			const room = rooms.get(socket.roomId);
+			if (!room || room.gamePhase !== 'drawing') return;
+
+			const player = room.players.find((p) => p.id === socket.id);
+			if (!player) return;
+
+			// Drawer can't send emotes
+			if (player.isDrawing) return;
+
+			// Broadcast emote to all players
+			io.to(socket.roomId).emit('emote', {
+				emote,
+				playerName: player.name,
+			});
+		});
+
+		// Typing indicator
+		socket.on('typing', () => {
+			const room = rooms.get(socket.roomId);
+			if (!room) return;
+
+			const player = room.players.find((p) => p.id === socket.id);
+			if (!player) return;
+
+			// Broadcast typing to others in the room
+			socket.to(socket.roomId).emit('playerTyping', {
+				playerName: player.name,
+			});
 		});
 
 		// Next round

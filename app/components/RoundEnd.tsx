@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { 
@@ -10,16 +10,30 @@ import {
   RefreshCcw, 
   Award, 
   BarChart3,
-  Home
+  Home,
+  ThumbsUp,
+  Smile,
+  Flame
 } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useSoundEffects } from '../hooks/useSoundEffects';
 import Confetti from './Confetti';
 
+// Vote options
+const VOTE_OPTIONS = [
+  { id: 'like', emoji: '👍', label: 'Nice!', icon: ThumbsUp, color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/30' },
+  { id: 'funny', emoji: '😂', label: 'Funny', icon: Smile, color: 'text-yellow-500', bg: 'bg-yellow-500/10', border: 'border-yellow-500/30' },
+  { id: 'amazing', emoji: '🔥', label: 'Amazing', icon: Flame, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-500/30' },
+];
+
 export default function RoundEnd() {
   const { gamePhase, currentWord, players, resetGame, playerId, isOwner, isDrawer } = useGame();
   const { playVictory, playFail } = useSoundEffects();
   const router = useRouter();
+  
+  // Voting state
+  const [selectedVote, setSelectedVote] = useState<string | null>(null);
+  const [hasVoted, setHasVoted] = useState(false);
   
   // Confetti only active during game end
   const showConfetti = gamePhase === 'gameEnd';
@@ -27,6 +41,15 @@ export default function RoundEnd() {
   // Get current player's guessed status
   const currentPlayer = players.find(p => p.id === playerId);
   const didNotGuess = currentPlayer && !currentPlayer.hasGuessed && !isDrawer;
+  
+  // Get the drawer for this round
+  const drawer = players.find(p => p.isDrawing);
+
+  // Reset vote state when game phase changes
+  useEffect(() => {
+    setSelectedVote(null);
+    setHasVoted(false);
+  }, [gamePhase]);
 
   // Play victory sound when game ends
   useEffect(() => {
@@ -46,6 +69,13 @@ export default function RoundEnd() {
 
   const isGameEnd = gamePhase === 'gameEnd';
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  
+  // Handle vote click
+  const handleVote = (voteId: string) => {
+    if (hasVoted || isDrawer) return;
+    setSelectedVote(voteId);
+    setHasVoted(true);
+  };
 
   return (
     <>
@@ -79,7 +109,7 @@ export default function RoundEnd() {
               </h2>
             </motion.div>
           ) : (
-            <div className="flex flex-col items-center mb-6">
+            <div className="flex flex-col items-center mb-4">
               <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-3 ring-1 ring-primary/20">
                 <Timer className="w-6 h-6 text-primary" />
               </div>
@@ -97,6 +127,55 @@ export default function RoundEnd() {
             </div>
           )}
 
+          {/* Voting Section - Only show at round end, not game end */}
+          {!isGameEnd && drawer && !isDrawer && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mb-4"
+            >
+              <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider font-medium">
+                Rate {drawer.name}&apos;s drawing
+              </p>
+              <div className="flex justify-center gap-2">
+                {VOTE_OPTIONS.map((option) => {
+                  const isSelected = selectedVote === option.id;
+                  return (
+                    <motion.button
+                      key={option.id}
+                      whileHover={{ scale: hasVoted ? 1 : 1.05 }}
+                      whileTap={{ scale: hasVoted ? 1 : 0.95 }}
+                      onClick={() => handleVote(option.id)}
+                      disabled={hasVoted}
+                      className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl border transition-all ${
+                        isSelected
+                          ? `${option.bg} ${option.border} ${option.color} ring-2 ring-current ring-offset-2 ring-offset-card`
+                          : hasVoted
+                          ? 'bg-secondary/30 border-border/30 text-muted-foreground opacity-50'
+                          : `${option.bg} ${option.border} ${option.color} hover:scale-105`
+                      }`}
+                    >
+                      <span className="text-xl">{option.emoji}</span>
+                      <span className="text-[10px] font-medium uppercase tracking-wider">
+                        {option.label}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+              {hasVoted && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-xs text-green-500 mt-2"
+                >
+                  ✓ Vote submitted!
+                </motion.p>
+              )}
+            </motion.div>
+          )}
+
           {/* Scoreboard */}
           <div className="bg-secondary/30 rounded-xl border border-white/5 overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-secondary/20">
@@ -110,7 +189,7 @@ export default function RoundEnd() {
               </h3>
             </div>
             
-            <div className="max-h-[240px] overflow-y-auto custom-scrollbar p-2 space-y-1">
+            <div className="max-h-[200px] overflow-y-auto custom-scrollbar p-2 space-y-1">
               {sortedPlayers.map((player, index) => (
                 <motion.div
                   key={player.id}

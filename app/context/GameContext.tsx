@@ -73,16 +73,22 @@ interface GameContextType extends GameState {
 	startGame: () => void;
 	selectWord: (word: string) => void;
 	submitGuess: (guess: string) => void;
+	sendLobbyMessage: (message: string) => void;
 	nextRound: () => void;
 	resetGame: () => void;
 	updateSettings: (totalRounds: number, drawTime: number) => void;
 	emitDraw: (drawData: DrawData) => void;
 	emitClearCanvas: () => void;
+	emitCanvasSync: () => void;
 	canvasRef: React.RefObject<HTMLCanvasElement | null>;
 	clearCanvas: () => void;
 	kickPlayer: (playerId: string) => void;
 	leaveRoom: () => void;
 	reactToDrawing: (reaction: 'like' | 'dislike') => void;
+	sendEmote: (emote: string) => void;
+	sendTypingIndicator: () => void;
+	typingPlayers: string[];
+	emoteReactions: { id: string; emote: string; playerName: string }[];
 }
 
 export interface DrawData {
@@ -94,6 +100,7 @@ export interface DrawData {
 	tool: 'brush' | 'eraser' | 'fill';
 	prevX?: number;
 	prevY?: number;
+	shape?: 'rectangle' | 'circle' | 'line';
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -313,6 +320,38 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 				return;
 			}
 
+			// Handle shape drawing (rectangle, circle, line)
+			if (drawData.shape && drawData.prevX !== undefined && drawData.prevY !== undefined) {
+				const startX = drawData.prevX;
+				const startY = drawData.prevY;
+				const endX = drawData.x;
+				const endY = drawData.y;
+				
+				ctx.beginPath();
+				ctx.strokeStyle = drawData.color;
+				ctx.lineWidth = drawData.brushSize;
+				ctx.lineCap = 'round';
+				ctx.lineJoin = 'round';
+				
+				if (drawData.shape === 'rectangle') {
+					const width = endX - startX;
+					const height = endY - startY;
+					ctx.strokeRect(startX, startY, width, height);
+				} else if (drawData.shape === 'circle') {
+					const radiusX = Math.abs(endX - startX) / 2;
+					const radiusY = Math.abs(endY - startY) / 2;
+					const centerX = startX + (endX - startX) / 2;
+					const centerY = startY + (endY - startY) / 2;
+					ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+					ctx.stroke();
+				} else if (drawData.shape === 'line') {
+					ctx.moveTo(startX, startY);
+					ctx.lineTo(endX, endY);
+					ctx.stroke();
+				}
+				return;
+			}
+
 			// Handle brush/eraser strokes
 			if (
 				drawData.type === 'draw' &&
@@ -329,6 +368,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 				ctx.lineJoin = 'round';
 				ctx.stroke();
 			}
+		});
+
+		// Canvas sync (for undo/redo)
+		socket.on('canvasSync', (imageDataUrl: string) => {
+			const canvas = canvasRef.current;
+			const ctx = canvas?.getContext('2d');
+			if (!canvas || !ctx) return;
+			
+			const img = new Image();
+			img.onload = () => {
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				ctx.drawImage(img, 0, 0);
+			};
+			img.src = imageDataUrl;
 		});
 
 		// Clear canvas
@@ -502,6 +555,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 		socket.emit('clearCanvas');
 	}, []);
 
+	const emitCanvasSync = useCallback(() => {
+		const socket = socketRef.current;
+		const canvas = canvasRef.current;
+		if (!socket || !canvas) return;
+		// Get canvas as data URL and emit to other players
+		const imageDataUrl = canvas.toDataURL('image/png');
+		socket.emit('canvasSync', imageDataUrl);
+	}, []);
+
 	const clearCanvas = useCallback(() => {
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext('2d');
@@ -547,6 +609,69 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 		socket.emit('drawingReaction', reaction);
 	}, []);
 
+	// New feature: Lobby chat
+	const sendLobbyMessage = useCallback((message: string) => {
+		const socket = socketRef.current;
+		if (!socket || !message.trim()) return;
+		socket.emit('lobbyMessage', message.trim());
+	}, []);
+
+	// New feature: Emote reactions
+	const [emoteReactions, setEmoteReactions] = useState<{ id: string; emote: string; playerName: string }[]>([]);
+	
+	const sendEmote = useCallback((emote: string) => {
+		const socket = socketRef.current;
+		if (!socket) return;
+		socket.emit('sendEmote', emote);
+	}, []);
+
+	// New feature: Typing indicator
+	const [typingPlayers, setTypingPlayers] = useState<string[]>([]);
+	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+	
+	const sendTypingIndicator = useCallback(() => {
+		const socket = socketRef.current;
+		if (!socket) return;
+		socket.emit('typing');
+	}, []);
+
+	// Listen for new socket events
+	useEffect(() => {
+		const socket = socketRef.current;
+		if (!socket) return;
+
+		// Emote event
+		const handleEmote = (data: { emote: string; playerName: string }) => {
+			const id = `${Date.now()}-${Math.random()}`;
+			setEmoteReactions(prev => [...prev, { id, ...data }]);
+			// Remove after animation
+			setTimeout(() => {
+				setEmoteReactions(prev => prev.filter(e => e.id !== id));
+			}, 2000);
+		};
+
+		// Typing event
+		const handleTyping = (data: { playerName: string }) => {
+			setTypingPlayers(prev => {
+				if (prev.includes(data.playerName)) return prev;
+				return [...prev, data.playerName];
+			});
+			// Clear typing indicator after 3 seconds
+			if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+			typingTimeoutRef.current = setTimeout(() => {
+				setTypingPlayers(prev => prev.filter(p => p !== data.playerName));
+			}, 3000);
+		};
+
+		socket.on('emote', handleEmote);
+		socket.on('playerTyping', handleTyping);
+
+		return () => {
+			socket.off('emote', handleEmote);
+			socket.off('playerTyping', handleTyping);
+		};
+	}, []);
+
 	return (
 		<GameContext.Provider
 			value={{
@@ -556,16 +681,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 				startGame,
 				selectWord,
 				submitGuess,
+				sendLobbyMessage,
 				nextRound,
 				resetGame,
 				updateSettings,
 				emitDraw,
 				emitClearCanvas,
+				emitCanvasSync,
 				canvasRef,
 				clearCanvas,
 				kickPlayer,
 				leaveRoom,
 				reactToDrawing,
+				sendEmote,
+				sendTypingIndicator,
+				typingPlayers,
+				emoteReactions,
 			}}>
 			{children}
 		</GameContext.Provider>
