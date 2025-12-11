@@ -97,20 +97,7 @@ export default function Settings() {
 							<div className="border-t border-border" />
 
 							{/* About Section */}
-							<div>
-								<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-									About
-								</h3>
-								<div className="flex items-center gap-3">
-									<div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-sm">
-										GG
-									</div>
-									<div>
-										<p className="font-medium text-foreground text-sm">Galactic Guess</p>
-										<p className="text-xs text-muted-foreground">Version 1.0.0</p>
-									</div>
-								</div>
-							</div>
+							
 
 							{/* Mobile Exit Section - Only visible on mobile and inside a game */}
 							{isGamePage && (
@@ -128,14 +115,7 @@ export default function Settings() {
 						</div>
 
 						{/* Footer */}
-						<div className="px-5 py-4 border-t border-border bg-secondary/20">
-							<button
-								onClick={() => setIsOpen(false)}
-								className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-lg transition-colors"
-							>
-								Done
-							</button>
-						</div>
+						
 					</motion.div>
 				</motion.div>
 			)}

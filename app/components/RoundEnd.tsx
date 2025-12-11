@@ -31,7 +31,7 @@ export default function RoundEnd() {
   const { playVictory, playFail } = useSoundEffects();
   const router = useRouter();
   
-  // Voting state
+  // Voting state - uses gamePhase as key to automatically reset when phase changes
   const [selectedVote, setSelectedVote] = useState<string | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
   
@@ -44,12 +44,6 @@ export default function RoundEnd() {
   
   // Get the drawer for this round
   const drawer = players.find(p => p.isDrawing);
-
-  // Reset vote state when game phase changes
-  useEffect(() => {
-    setSelectedVote(null);
-    setHasVoted(false);
-  }, [gamePhase]);
 
   // Play victory sound when game ends
   useEffect(() => {
@@ -104,7 +98,7 @@ export default function RoundEnd() {
               <div className="w-16 h-16 bg-yellow-500/20 rounded-2xl flex items-center justify-center mb-3 ring-1 ring-yellow-500/40 shadow-[0_0_20px_rgba(234,179,8,0.2)]">
                 <Trophy className="w-8 h-8 text-yellow-500" />
               </div>
-              <h2 className="text-2xl font-bold bg-gradient-to-br from-yellow-400 to-orange-600 bg-clip-text text-transparent">
+              <h2 className="text-2xl font-bold bg-linear-to-br from-yellow-400 to-orange-600 bg-clip-text text-transparent">
                 Game Over
               </h2>
             </motion.div>
@@ -261,7 +255,7 @@ export default function RoundEnd() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={resetGame}
-                    className="flex-[2] py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                    className="flex-2 py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
                   >
                     <RefreshCcw className="w-4 h-4" />
                     Play Again

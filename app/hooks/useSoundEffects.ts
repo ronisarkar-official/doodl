@@ -11,6 +11,7 @@ const SOUNDS = {
 	fail: '/sounds/fail.mp3',
 	join: '/sounds/join.mp3',
 	leave: '/sounds/leave.mp3',
+	gameStart: '/sounds/game-start.mp3',
 } as const;
 
 type SoundType = keyof typeof SOUNDS;
@@ -60,6 +61,7 @@ export function useSoundEffects() {
 	const playFail = useCallback(() => playSound('fail'), [playSound]);
 	const playJoin = useCallback(() => playSound('join'), [playSound]);
 	const playLeave = useCallback(() => playSound('leave'), [playSound]);
+	const playGameStart = useCallback(() => playSound('gameStart'), [playSound]);
 
 	// Special tick function that tracks the audio so it can be stopped
 	const playTick = useCallback(() => {
@@ -111,6 +113,7 @@ export function useSoundEffects() {
 		playFail,
 		playJoin,
 		playLeave,
+		playGameStart,
 		playSound,
 		setVolume,
 		setEnabled,

@@ -5,73 +5,53 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { useGame } from './context/GameContext';
 import { ArrowRight, Users, X, Globe, Lock, ChevronRight } from 'lucide-react';
-import AvatarBuilder from './components/AvatarBuilder';
-import AvatarPreview from './components/AvatarPreview';
-import { AvatarParts, getRandomAvatar } from './data/avatarParts';
 
-const generateFunnyName = () => {
-	const adjectives = [
-		'Cosmic',
-		'Galactic',
-		'Nebula',
-		'Star',
-		'Space',
-		'Moon',
-		'Solar',
-		'Alien',
-		'Rocket',
-		'Meteor',
-		'Comet',
-		'Orbit',
-		'Lunar',
-		'Stellar',
-		'Astro',
-		'Happy',
-		'Brave',
-		'Clever',
-		'Swift',
-		'Bright',
-	];
-	const nouns = [
-		'Cadet',
-		'Surfer',
-		'Walker',
-		'Ranger',
-		'Pilot',
-		'Explorer',
-		'Traveler',
-		'Ninja',
-		'Pirate',
-		'Captain',
-		'Guardian',
-		'Drifter',
-		'Voyager',
-		'Nomad',
-		'Jumper',
-		'Goat',
-		'Panda',
-		'Eagle',
-		'Tiger',
-		'Falcon',
-	];
-	const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-	const noun = nouns[Math.floor(Math.random() * nouns.length)];
-	return `${adj} ${noun} ${Math.floor(Math.random() * 100)}`;
-};
+import { AvatarParts, getRandomAvatar } from './data/avatarParts';
+import { generateFunnyName } from './data/funnyNames';
+import Image from 'next/image';
 
 function Logo() {
 	return (
 		<div className="mb-8 text-center">
-			<div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
-				do
-			</div>
-			<h1 className="mt-4 text-2xl font-bold text-foreground">doodl</h1>
-			<p className="text-sm text-muted-foreground mt-1">Fast, friendly multiplayer rounds</p>
+			<motion.div
+				initial={{ scale: 0.9, opacity: 0 }}
+				animate={{ scale: 1, opacity: 1 }}
+				transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+				className="relative inline-block"
+			>
+				{/* Glow effect behind logo */}
+				<div className="absolute inset-0 bg-linear-to-br from-blue-500/30 to-purple-600/30 blur-2xl rounded-full scale-150" />
+				<Image
+					src="/images/logo.png"
+					alt="doodl logo"
+					width={140}
+					height={140}
+					className="relative z-10 drop-shadow-2xl"
+				/>
+			</motion.div>
+			<motion.p
+				initial={{ opacity: 0, y: 10 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.4, delay: 0.2 }}
+				className="text-sm text-muted-foreground mt-4 font-medium"
+			>
+				Fast, friendly multiplayer rounds
+			</motion.p>
 		</div>
 	);
 }
 
-function RoomVisibilityOption({ icon: Icon, label, active, onClick }: { icon: React.ElementType; label: string; active: boolean; onClick: () => void }) {
+function RoomVisibilityOption({
+	icon: Icon,
+	label,
+	active,
+	onClick,
+}: {
+	icon: React.ElementType;
+	label: string;
+	active: boolean;
+	onClick: () => void;
+}) {
 	return (
 		<button
 			type="button"
@@ -83,7 +63,9 @@ function RoomVisibilityOption({ icon: Icon, label, active, onClick }: { icon: Re
 			}`}
 			aria-pressed={active}>
 			<Icon
-				className={`w-5 h-5 ${active ? 'text-primary' : 'text-muted-foreground'}`}
+				className={`w-5 h-5 ${
+					active ? 'text-primary' : 'text-muted-foreground'
+				}`}
 				strokeWidth={1.5}
 			/>
 			<span
@@ -100,13 +82,18 @@ function RoomVisibilityOption({ icon: Icon, label, active, onClick }: { icon: Re
 }
 
 export default function Home() {
-	const [name, setName] = useState('');
+	const [name, setName] = useState(() => {
+		if (typeof window !== 'undefined') {
+			return localStorage.getItem('playerDisplayName') || '';
+		}
+		return '';
+	});
 	const [roomId, setRoomId] = useState('');
 	const [showJoinModal, setShowJoinModal] = useState(false);
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [isPublic, setIsPublic] = useState(true);
-	const [avatar, setAvatar] = useState<AvatarParts>(() => getRandomAvatar());
-	const [showAvatarBuilder, setShowAvatarBuilder] = useState(false);
+	const [avatar] = useState<AvatarParts>(() => getRandomAvatar());
+
 	const [isJoining, setIsJoining] = useState(false);
 	const [onlineCount, setOnlineCount] = useState(2847);
 	const router = useRouter();
@@ -137,6 +124,15 @@ export default function Home() {
 	}, []);
 	const { joinRoom, quickPlay } = useGame();
 
+
+
+	// Save name to localStorage when it changes
+	useEffect(() => {
+		if (name) {
+			localStorage.setItem('playerDisplayName', name);
+		}
+	}, [name]);
+
 	const joinInputRef = useRef<HTMLInputElement>(null);
 	const prevActiveElement = useRef<HTMLElement | null>(null);
 
@@ -157,7 +153,8 @@ export default function Home() {
 		}
 	}, [showJoinModal, showCreateModal]);
 
-	const sanitizeCode = (val: string) => val.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
+	const sanitizeCode = (val: string) =>
+		val.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
 
 	const generateRoomId = () =>
 		Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -199,9 +196,9 @@ export default function Home() {
 	const handleQuickPlay = (e?: React.FormEvent) => {
 		if (e) e.preventDefault();
 		if (isJoining) return;
-		
+
 		setIsJoining(true);
-		
+
 		let playerName = name.trim();
 		if (!playerName) {
 			playerName = generateFunnyName();
@@ -210,7 +207,7 @@ export default function Home() {
 
 		sessionStorage.setItem('playerName', playerName);
 		sessionStorage.setItem('playerAvatar', JSON.stringify(avatar));
-		
+
 		const timeoutId = setTimeout(() => {
 			setIsJoining(false);
 			alert('Connection timed out. Please try again.');
@@ -234,7 +231,7 @@ export default function Home() {
 			/>
 
 			{/* Gradient glow */}
-			<div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-to-b from-primary/10 to-transparent blur-3xl pointer-events-none" />
+			<div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-linear-to-b from-primary/10 to-transparent blur-3xl pointer-events-none" />
 
 			<motion.div
 				initial={{ opacity: 0, y: 20 }}
@@ -307,7 +304,9 @@ export default function Home() {
 						</div>
 						<div className="flex items-center gap-2">
 							<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-							<span className="text-[13px]">{onlineCount.toLocaleString()} online</span>
+							<span className="text-[13px]">
+								{onlineCount.toLocaleString()} online
+							</span>
 						</div>
 					</div>
 				</motion.div>

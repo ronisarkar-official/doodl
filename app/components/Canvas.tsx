@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ThumbsUp, ThumbsDown, Undo2, Redo2, Circle, Square, Minus } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Undo2, Redo2, Circle, Square, Minus, Download } from 'lucide-react';
 import { useGame, DrawData } from '../context/GameContext';
 
 // Compact color palette
@@ -216,6 +216,23 @@ export default function Canvas() {
 		setHistory([initialState]);
 		setHistoryIndex(0);
 	}, [canvasRef]);
+
+	// Clear history cache when round ends
+	const prevGamePhaseRef = useRef(gamePhase);
+	useEffect(() => {
+		const prevPhase = prevGamePhaseRef.current;
+		prevGamePhaseRef.current = gamePhase;
+		
+		// Only clear when transitioning TO roundEnd or gameEnd (not when already there)
+		if ((gamePhase === 'roundEnd' || gamePhase === 'gameEnd') && 
+			prevPhase !== 'roundEnd' && prevPhase !== 'gameEnd') {
+			// Use setTimeout to avoid synchronous setState in effect
+			setTimeout(() => {
+				setHistory([]);
+				setHistoryIndex(-1);
+			}, 0);
+		}
+	}, [gamePhase]);
 
 	const getCanvasCoords = (
 		e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
@@ -466,6 +483,20 @@ export default function Canvas() {
 		setTimeout(() => saveToHistory(), 50);
 	};
 
+	// Handle download
+	const handleDownload = () => {
+		const canvas = canvasRef.current;
+		if (!canvas) return;
+		
+		const dataUrl = canvas.toDataURL('image/png');
+		const link = document.createElement('a');
+		link.download = `doodle-drawing-${Date.now()}.png`;
+		link.href = dataUrl;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+	};
+
 	const toggleDropdown = (dropdown: 'color' | 'size') => {
 		setOpenDropdown((prev) => (prev === dropdown ? null : dropdown));
 	};
@@ -504,6 +535,14 @@ export default function Canvas() {
 						</span>
 					</div>
 				)}
+				
+				{/* Download Button */}
+				<button
+					onClick={handleDownload}
+					className="absolute top-2 right-2 p-2 bg-black/20 hover:bg-black/40 text-white/70 hover:text-white rounded-lg transition-all backdrop-blur-sm z-10"
+					title="Download drawing">
+					<Download className="w-4 h-4" />
+				</button>
 			</motion.div>
 
 			{/* Like/Dislike Buttons - visible only to non-drawers during drawing */}

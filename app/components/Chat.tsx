@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Send } from 'lucide-react';
 import { useSoundEffects } from '../hooks/useSoundEffects';
 import Confetti from './Confetti';
+import EmotePicker, { EmoteQuickBar } from './EmotePicker';
 
 type ChatMessage = {
 	id: string;
@@ -100,24 +101,27 @@ export default function Chat(): React.JSX.Element {
 	}, []);
 
 	// Handle typing indicator with debounce
-	const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-		setInput(e.target.value);
-		
-		// Only emit typing if we're in drawing phase and not the drawer
-		if (gamePhase === 'drawing' && !isDrawer && e.target.value.length > 0) {
-			const now = Date.now();
-			// Debounce: only emit every 2 seconds
-			if (now - lastTypingEmitRef.current > 2000) {
-				sendTypingIndicator();
-				lastTypingEmitRef.current = now;
+	const handleInputChange = useCallback(
+		(e: React.ChangeEvent<HTMLInputElement>) => {
+			setInput(e.target.value);
+
+			// Only emit typing if we're in drawing phase and not the drawer
+			if (gamePhase === 'drawing' && !isDrawer && e.target.value.length > 0) {
+				const now = Date.now();
+				// Debounce: only emit every 2 seconds
+				if (now - lastTypingEmitRef.current > 2000) {
+					sendTypingIndicator();
+					lastTypingEmitRef.current = now;
+				}
 			}
-		}
-	}, [gamePhase, isDrawer, sendTypingIndicator]);
+		},
+		[gamePhase, isDrawer, sendTypingIndicator],
+	);
 
 	const handleSubmit = (e?: React.FormEvent) => {
 		e?.preventDefault();
 		if (!input.trim()) return;
-		
+
 		// Handle lobby chat
 		if (gamePhase === 'lobby') {
 			lastSentTextRef.current = input.trim();
@@ -126,7 +130,7 @@ export default function Chat(): React.JSX.Element {
 			setTimeout(() => scrollToBottom(), 50);
 			return;
 		}
-		
+
 		// Handle game guessing
 		if (gamePhase !== 'drawing') return;
 		if (isDrawer) return;
@@ -172,10 +176,10 @@ export default function Chat(): React.JSX.Element {
 	};
 
 	const inputState = getInputState();
-	
+
 	// Filter typing players (exclude self)
-	const otherTypingPlayers = typingPlayers.filter(name => {
-		const player = players.find(p => p.name === name);
+	const otherTypingPlayers = typingPlayers.filter((name) => {
+		const player = players.find((p) => p.name === name);
 		return player && player.id !== playerId;
 	});
 
@@ -236,7 +240,8 @@ export default function Chat(): React.JSX.Element {
 				)}
 
 				{/* Quick Messages - Only show when chat is enabled */}
-				{(gamePhase === 'lobby' || (gamePhase === 'drawing' && !isDrawer && !hasGuessed)) && (
+				{(gamePhase === 'lobby' ||
+					(gamePhase === 'drawing' && !isDrawer && !hasGuessed)) && (
 					<div className="px-3 pb-2 flex flex-wrap gap-1.5">
 						{QUICK_MESSAGES.map((msg) => (
 							<button
@@ -248,6 +253,9 @@ export default function Chat(): React.JSX.Element {
 						))}
 					</div>
 				)}
+
+				{/* Emote Quick Reactions - YouTube style */}
+				<EmoteQuickBar />
 
 				{/* Input Area */}
 				<div className="p-3 border-t border-sidebar-border bg-sidebar">
@@ -262,18 +270,19 @@ export default function Chat(): React.JSX.Element {
 							onKeyDown={handleKeyDown}
 							placeholder={inputState.placeholder}
 							disabled={inputState.disabled}
-							className={`w-full bg-input text-foreground text-sm px-3 py-2.5 rounded-md border border-transparent focus:border-primary focus:outline-none transition-all placeholder:text-muted-foreground ${
+							className={`w-full bg-input text-foreground text-sm pl-3 pr-20 py-2.5 rounded-md border border-transparent focus:border-primary focus:outline-none transition-all placeholder:text-muted-foreground ${
 								inputState.disabled
 									? 'opacity-50 cursor-not-allowed'
 									: 'hover:bg-secondary focus:bg-background'
 							}`}
 						/>
 
-						{/* Send button */}
-						<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+						{/* Send button and Emote picker */}
+						<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
 							<span className="text-xs text-muted-foreground hidden sm:inline">
-								↵
+								{input.trim() ? input.length : null}
 							</span>
+							<EmotePicker />
 							<Button
 								size="sm"
 								type="button"

@@ -644,10 +644,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 		const handleEmote = (data: { emote: string; playerName: string }) => {
 			const id = `${Date.now()}-${Math.random()}`;
 			setEmoteReactions(prev => [...prev, { id, ...data }]);
-			// Remove after animation
+			// Remove after animation (matches the 2-3s animation duration in EmoteReactions)
 			setTimeout(() => {
 				setEmoteReactions(prev => prev.filter(e => e.id !== id));
-			}, 2000);
+			}, 3500);
 		};
 
 		// Typing event

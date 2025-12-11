@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { Github, HelpCircle, Home, Menu, X } from 'lucide-react';
@@ -52,12 +53,13 @@ export default function Navbar() {
 							className={`flex items-center gap-2 sm:gap-2.5 pointer-events-auto ${
 								isGamePage ? 'opacity-0 pointer-events-none' : 'opacity-100'
 							}`}>
-							<div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-lg shadow-blue-500/20">
-								do
-							</div>
-							<span className="text-base sm:text-lg font-semibold text-foreground">
-								doodl
-							</span>
+						<Image
+							src="/images/logo.png"
+							alt="doodl"
+							width={100}
+							height={100}
+							className="drop-shadow-lg"
+						/>
 						</Link>
 
 						{/* Desktop Nav */}

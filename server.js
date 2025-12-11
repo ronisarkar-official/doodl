@@ -61,54 +61,8 @@ let WORD_PACKS = loadLocalWords();
 // Fallback words (all loaded words flattened)
 let WORDS = Object.values(WORD_PACKS).flat();
 
-// ALL_PACK_IDS will be defined later
-// const ALL_PACK_IDS = Object.keys(WORD_PACKS);
-
-// Fetch remote words (simulating an API call for now, can be replaced with real fetch)
-async function fetchRemoteWords() {
-	console.log('Fetching remote words...');
-	try {
-		// Fetching a list of common English nouns from a reliable GitHub raw source
-		const response = await fetch(
-			'https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english-no-swears.txt',
-		);
-
-		if (!response.ok) {
-			console.error('Failed to fetch remote words:', response.status);
-			return;
-		}
-
-		const text = await response.text();
-		const remoteWords = text
-			.split('\n')
-			.map((w) => w.trim())
-			.filter((w) => w.length > 2 && w.length < 15); // Filter for reasonable game words
-
-		if (remoteWords.length > 0) {
-			console.log(`Fetched ${remoteWords.length} remote words`);
-
-			// Add as a new "Remote" pack
-			WORD_PACKS['remote'] = remoteWords;
-
-			// Also merge into general as a fallback backup or just keep separate
-			// Let's keep it separate so user can toggle "Remote Dictionary" if we added it to UI,
-			// but for now, let's also append to the global WORDS fallback
-			WORDS = Object.values(WORD_PACKS).flat();
-
-			// Update the ALL_PACK_IDS reference
-			// Note: In a real app we'd want to emit this to clients, but for now server-side is enough
-		}
-	} catch (error) {
-		console.error('Error fetching remote words:', error);
-	}
-}
-
-fetchRemoteWords();
-
-// Update ALL_PACK_IDS after potential fetch (though fetch is async, basic packs are ready)
-// We use a getter or re-evaluate when needed, but for effective "const" usage previously,
-// we'll just leave the initial definitions. The fetch will update the reference objects.
-const ALL_PACK_IDS_INITIAL = Object.keys(WORD_PACKS);
+// Log loaded word packs
+console.log(`Loaded ${WORDS.length} drawable words from local word packs`);
 
 // Game rooms storage
 const rooms = new Map();
@@ -136,26 +90,83 @@ function getRandomWords(room, count = 3) {
 	return shuffled.slice(0, count);
 }
 
-function getWordHint(word, revealedCount) {
+function getWordHint(word, revealedCount, existingRevealedIndices = []) {
 	const letters = word.split('');
-	const revealIndices = new Set();
+	const revealIndices = new Set(existingRevealedIndices);
 
+	// Always reveal spaces (and hyphens/special chars if we wanted, but sticking to spaces for now)
 	letters.forEach((char, i) => {
 		if (char === ' ') revealIndices.add(i);
 	});
 
-	const nonSpaceIndices = letters
-		.map((c, i) => (c !== ' ' ? i : -1))
+	// Get potential indices to reveal (not spaces, not already revealed)
+	let availableIndices = letters
+		.map((c, i) => (c !== ' ' && !revealIndices.has(i) ? i : -1))
 		.filter((i) => i !== -1);
-	for (let i = 0; i < revealedCount && i < nonSpaceIndices.length; i++) {
-		const randomIdx = Math.floor(Math.random() * nonSpaceIndices.length);
-		revealIndices.add(nonSpaceIndices[randomIdx]);
-		nonSpaceIndices.splice(randomIdx, 1);
+
+	// Calculate how many new letters to reveal
+	const currentlyRevealed = existingRevealedIndices.length;
+	// Ensure we don't reveal more than available (though availableIndices check handles this loop)
+	let newToReveal = revealedCount - currentlyRevealed;
+
+	// Helper to calculate minimum distance from candidate to any revealed index
+	const getMinDistance = (candidateIdx, currentRevealedSet) => {
+		// If nothing revealed yet, distance is infinity (or effectively max)
+		// We treat the "edges" as revealed points -1 and letters.length to push initialization to center?
+		// Actually, standard practice for "scattered" is just max min distance to existing.
+		// If set is empty, we can return a default high value.
+		if (currentRevealedSet.size === 0) return 100;
+
+		let minSrc = Infinity;
+		for (const idx of currentRevealedSet) {
+			const dist = Math.abs(candidateIdx - idx);
+			if (dist < minSrc) minSrc = dist;
+		}
+		return minSrc;
+	};
+
+	// Iteratively pick the best next candidate
+	for (let i = 0; i < newToReveal && availableIndices.length > 0; i++) {
+		// Calculate score (min distance) for each available index
+		const candidatesWithScores = availableIndices.map((idx) => {
+			// We only care about distance to *revealed non-space letters* ideally,
+			// or maybe spaces count as spacers? Let's say spaces count as revealed for spacing purposes
+			// to avoid clustering next to a space. Yes, revealIndices includes spaces.
+			return { idx, score: getMinDistance(idx, revealIndices) };
+		});
+
+		// Find max score
+		let maxScore = -1;
+		candidatesWithScores.forEach((c) => {
+			if (c.score > maxScore) maxScore = c.score;
+		});
+
+		// Filter best candidates (ties are possible)
+		const bestCandidates = candidatesWithScores.filter(
+			(c) => c.score === maxScore,
+		);
+
+		// Pick one random best candidate
+		const winner =
+			bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
+
+		// Add to revealed
+		revealIndices.add(winner.idx);
+
+		// Remove from available
+		availableIndices = availableIndices.filter((idx) => idx !== winner.idx);
 	}
 
-	return letters
+	// Get the array of revealed letter indices (excluding spaces)
+	const revealedLetterIndices = [...revealIndices].filter(
+		(i) => letters[i] !== ' ',
+	);
+
+	const hint = letters
 		.map((char, i) => (revealIndices.has(i) ? char : '_'))
 		.join(' ');
+
+	return { hint, revealedIndices: revealedLetterIndices };
 }
 
 function createRoom(roomId, isPublic = true) {
@@ -174,6 +185,7 @@ function createRoom(roomId, isPublic = true) {
 		chatMessages: [],
 		wordOptions: [],
 		revealedLetters: 0,
+		revealedIndices: [], // Store which letter indices have been revealed
 		timerInterval: null,
 		canvasData: null,
 		ownerId: null, // First player to join is owner
@@ -316,40 +328,62 @@ app.prepare().then(() => {
 			// Check if player already exists (reconnection by name)
 			const existingPlayer = room.players.find((p) => p.name === playerName);
 			if (existingPlayer) {
-				// Update player ID for reconnection
-				existingPlayer.id = socket.id;
-				socket.join(roomId);
-				socket.roomId = roomId;
-				socket.playerId = socket.id;
+				// Check if the existing player's socket is still active
+				const existingSocket = io.sockets.sockets.get(existingPlayer.id);
+				const isConnected = existingSocket && existingSocket.connected;
 
-				// Send current room state (only serializable fields)
-				socket.emit('roomState', {
-					id: room.id,
-					players: room.players,
-					currentDrawerIndex: room.currentDrawerIndex,
-					wordHint: room.wordHint,
-					roundTime: room.roundTime,
-					maxDrawTime: room.maxDrawTime,
-					currentRound: room.currentRound,
-					currentTurn: room.currentTurn,
-					totalRounds: room.totalRounds,
-					gamePhase: room.gamePhase,
-					chatMessages: room.chatMessages,
-					ownerId: room.ownerId,
-					isPublic: room.isPublic,
-					currentWord:
-						room.gamePhase === 'drawing' &&
-						room.players[room.currentDrawerIndex]?.id === socket.id
-							? room.currentWord
-							: '',
-					wordOptions:
-						room.gamePhase === 'choosing' &&
-						room.players[room.currentDrawerIndex]?.id === socket.id
-							? room.wordOptions
-							: [],
-				});
-				io.to(roomId).emit('playersUpdate', room.players);
-				return;
+				if (!isConnected) {
+					// Reconnection: Player exists but is disconnected
+					console.log(
+						`Reconnecting player ${playerName} to room ${roomId} (oldId: ${existingPlayer.id})`,
+					);
+					existingPlayer.id = socket.id;
+					socket.join(roomId);
+					socket.roomId = roomId;
+					socket.playerId = socket.id;
+
+					// Send current room state (only serializable fields)
+					socket.emit('roomState', {
+						id: room.id,
+						players: room.players,
+						currentDrawerIndex: room.currentDrawerIndex,
+						wordHint: room.wordHint,
+						roundTime: room.roundTime,
+						maxDrawTime: room.maxDrawTime,
+						currentRound: room.currentRound,
+						currentTurn: room.currentTurn,
+						totalRounds: room.totalRounds,
+						gamePhase: room.gamePhase,
+						chatMessages: room.chatMessages,
+						ownerId: room.ownerId,
+						isPublic: room.isPublic,
+						currentWord:
+							room.gamePhase === 'drawing' &&
+							room.players[room.currentDrawerIndex]?.id === socket.id
+								? room.currentWord
+								: '',
+						wordOptions:
+							room.gamePhase === 'choosing' &&
+							room.players[room.currentDrawerIndex]?.id === socket.id
+								? room.wordOptions
+								: [],
+					});
+					io.to(roomId).emit('playersUpdate', room.players);
+					return;
+				} else {
+					// Name collision: Player exists and is connected
+					console.log(
+						`Name collision for ${playerName} in room ${roomId}. Generating unique name.`,
+					);
+					// Generate a unique name
+					let count = 2;
+					let newName = `${playerName} ${count}`;
+					while (room.players.some((p) => p.name === newName)) {
+						count++;
+						newName = `${playerName} ${count}`;
+					}
+					playerName = newName; // Use the new unique name
+				}
 			}
 
 			// Create new player
@@ -519,10 +553,12 @@ app.prepare().then(() => {
 			if (!drawer || drawer.id !== socket.id) return;
 
 			room.currentWord = word;
-			room.wordHint = getWordHint(word, 0);
+			room.revealedLetters = 0;
+			room.revealedIndices = [];
+			const hintResult = getWordHint(word, 0, []);
+			room.wordHint = hintResult.hint;
 			room.gamePhase = 'drawing';
 			room.roundTime = room.maxDrawTime; // Use room setting
-			room.revealedLetters = 0;
 			room.canvasData = null;
 
 			clearInterval(room.timerInterval);
@@ -942,8 +978,14 @@ app.prepare().then(() => {
 				room.roundTime < room.maxDrawTime &&
 				room.roundTime > 0
 			) {
-				room.revealedLetters++;
-				room.wordHint = getWordHint(room.currentWord, room.revealedLetters);
+			room.revealedLetters++;
+				// Ensure revealedIndices is an array (defensive for old rooms)
+				if (!Array.isArray(room.revealedIndices)) {
+					room.revealedIndices = [];
+				}
+				const hintResult = getWordHint(room.currentWord, room.revealedLetters, room.revealedIndices);
+				room.wordHint = hintResult.hint;
+				room.revealedIndices = hintResult.revealedIndices;
 				io.to(room.id).emit('wordHintUpdate', room.wordHint);
 			}
 
@@ -955,7 +997,10 @@ app.prepare().then(() => {
 							Math.floor(Math.random() * room.wordOptions.length)
 						];
 					room.currentWord = word;
-					room.wordHint = getWordHint(word, 0);
+					room.revealedLetters = 0;
+					room.revealedIndices = [];
+					const autoHintResult = getWordHint(word, 0, []);
+					room.wordHint = autoHintResult.hint;
 					room.gamePhase = 'drawing';
 					room.roundTime = room.maxDrawTime;
 
@@ -1019,6 +1064,7 @@ app.prepare().then(() => {
 		room.currentWord = '';
 		room.wordHint = '';
 		room.revealedLetters = 0;
+		room.revealedIndices = [];
 		room.players.forEach((p) => {
 			p.hasGuessed = false;
 			p.isDrawing = false;

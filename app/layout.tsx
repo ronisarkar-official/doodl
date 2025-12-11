@@ -49,7 +49,7 @@ export const metadata: Metadata = {
 		siteName: 'doodl',
 		images: [
 			{
-				url: '/opengraph-image.png',
+				url: '/opengraph-image.webp',
 				width: 1200,
 				height: 630,
 				alt: 'doodl - Draw & Guess Game',
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
 		title: 'doodl - Multiplayer Draw & Guess Game',
 		description:
 			'Join the fun! Sketch your masterpieces and guess what others are drawing in real-time.',
-		images: ['/opengraph-image.png'],
+		images: ['/opengraph-image.webp'],
 		creator: '@doodlgame',
 	},
 	icons: {

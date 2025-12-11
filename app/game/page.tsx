@@ -1,11 +1,11 @@
 'use client';
 
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { LogOut, Users, ChevronDown } from 'lucide-react';
 import Canvas from '../components/Canvas';
-import EmoteReactions from '../components/EmoteReactions';
+import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Chat from '../components/Chat';
 import PlayerList from '../components/PlayerList';
@@ -14,7 +14,10 @@ import WordHint from '../components/WordHint';
 import WordSelector from '../components/WordSelector';
 import RoundEnd from '../components/RoundEnd';
 import SettingsPopup from '../components/Settings';
+import InviteFriends, { InviteButton } from '../components/InviteFriends';
+import EmoteReactions from '../components/EmoteReactions';
 import { useGame } from '../context/GameContext';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 function GameContent() {
 	const searchParams = useSearchParams();
@@ -53,9 +56,22 @@ function GameContent() {
 		}
 	}, [roomIdFromUrl, router]);
 
+	// Sound effects for game start
+	const { playGameStart } = useSoundEffects();
+	const prevGamePhaseRef = useRef(gamePhase);
+
+	// Play game start sound when game starts (lobby -> choosing)
+	useEffect(() => {
+		if (prevGamePhaseRef.current === 'lobby' && gamePhase === 'choosing') {
+			playGameStart();
+		}
+		prevGamePhaseRef.current = gamePhase;
+	}, [gamePhase, playGameStart]);
+
 	const [settingsRounds, setSettingsRounds] = useState(totalRounds);
 	const [settingsTime, setSettingsTime] = useState(maxDrawTime);
 	const [showMobilePlayers, setShowMobilePlayers] = useState(false);
+	const [showInviteModal, setShowInviteModal] = useState(false);
 
 	const currentDrawer = players.find((p) => p.isDrawing);
 
@@ -81,12 +97,13 @@ function GameContent() {
 				<div className="flex items-center gap-2 sm:gap-4 min-w-0 shrink-0">
 					{/* Logo */}
 					<div className="flex items-center gap-1.5 sm:gap-2.5">
-						<div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg sm:rounded-xl flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-lg shadow-blue-500/20">
-							GG
-						</div>
-						<span className="font-semibold text-sm sm:text-base hidden md:block text-foreground">
-							Galactic Guess
-						</span>
+						<Image
+													src="/images/logo.png"
+													alt="doodl"
+													width={100}
+													height={100}
+													className="drop-shadow-lg"
+												/>
 					</div>
 
 					{/* Room Info - Only show for private rooms and owner */}
@@ -148,6 +165,9 @@ function GameContent() {
 							}`}
 						/>
 					</button>
+
+					{/* Invite Friends Button */}
+					<InviteButton onClick={() => setShowInviteModal(true)} />
 
 					<SettingsPopup />
 
@@ -276,9 +296,9 @@ function GameContent() {
 							<div className="flex flex-col items-center gap-2">
 								<div className="relative shadow-2xl rounded-2xl overflow-hidden border border-border/30">
 									<Canvas />
-								</div>
-								<EmoteReactions />
-							</div>
+									{/* Live Reactions floating over canvas */}
+									<EmoteReactions />
+								</div></div>
 						</div>
 					)}
 				</div>
@@ -333,6 +353,7 @@ function GameContent() {
 
 			{/* Modals */}
 			<WordSelector />
+			<InviteFriends isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} />
 			<RoundEnd />
 		</div>
 	);
