@@ -1,8 +1,23 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import React, {
+	useEffect,
+	useRef,
+	useState,
+	useMemo,
+	useCallback,
+} from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ThumbsUp, ThumbsDown, Undo2, Redo2, Circle, Square, Minus, Download } from 'lucide-react';
+import {
+	ThumbsUp,
+	ThumbsDown,
+	Undo2,
+	Redo2,
+	Circle,
+	Square,
+	Minus,
+	Download,
+} from 'lucide-react';
 import { useGame, DrawData } from '../context/GameContext';
 
 // Compact color palette
@@ -52,9 +67,7 @@ const createBrushCursor = (color: string, size: number) => {
 	}" height="${displaySize}" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" fill="${color}" stroke="#333" stroke-width="1.5"/></svg>`;
 	return `url('data:image/svg+xml;utf8,${encodeURIComponent(svg)}') ${
 		(2 / 24) * displaySize
-	} ${
-		(22 / 24) * displaySize
-	}, crosshair`;
+	} ${(22 / 24) * displaySize}, crosshair`;
 };
 
 const createEraserCursor = (size: number) => {
@@ -89,42 +102,60 @@ const ToolBtn = ({
 		onClick={onClick}
 		title={title}
 		disabled={disabled}
-		className={`p-2 rounded-lg transition-all ${
-			disabled ? 'opacity-40 cursor-not-allowed' : ''
+		className={`p-1.5 rounded-lg transition-all border-2 font-bold ${
+			disabled ?
+				'opacity-40 cursor-not-allowed border-transparent'
+			:	'active:translate-y-0.5 active:shadow-none'
 		} ${
-			active
-				? 'bg-primary text-primary-foreground shadow-md'
-				: 'bg-transparent hover:bg-muted text-muted-foreground hover:text-foreground'
+			active ?
+				'bg-[#4fc3f7] text-black border-black shadow-[0_2px_0_#000000] -translate-y-[2px]'
+			:	'bg-transparent border-transparent text-black/60 hover:text-black hover:border-black/30'
 		}`}>
 		{children}
 	</button>
 );
 
 export default function Canvas() {
-	const { canvasRef, gamePhase, clearCanvas, isDrawer, emitDraw, emitCanvasSync, reactToDrawing } = useGame();
+	const {
+		canvasRef,
+		gamePhase,
+		clearCanvas,
+		isDrawer,
+		emitDraw,
+		emitCanvasSync,
+		reactToDrawing,
+	} = useGame();
 	const [isDrawing, setIsDrawing] = useState(false);
 	const [color, setColor] = useState('#000000');
 	const [brushSize, setBrushSize] = useState(8);
 	const [tool, setTool] = useState<ToolType>('brush');
-	const [openDropdown, setOpenDropdown] = useState<'color' | 'size' | null>(null);
+	const [openDropdown, setOpenDropdown] = useState<'color' | 'size' | null>(
+		null,
+	);
 	const lastPos = useRef<{ x: number; y: number } | null>(null);
 	const colorInputRef = useRef<HTMLInputElement>(null);
-	
+
 	// Undo/Redo history
 	const [history, setHistory] = useState<ImageData[]>([]);
 	const [historyIndex, setHistoryIndex] = useState(-1);
 	const isUndoRedoAction = useRef(false);
-	
+
 	// Shape drawing state
-	const [shapeStart, setShapeStart] = useState<{ x: number; y: number } | null>(null);
-	const [shapePreview, setShapePreview] = useState<{ x: number; y: number } | null>(null);
+	const [shapeStart, setShapeStart] = useState<{ x: number; y: number } | null>(
+		null,
+	);
+	const [shapePreview, setShapePreview] = useState<{
+		x: number;
+		y: number;
+	} | null>(null);
 	const tempCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
 	const canvasCursor = useMemo(() => {
 		if (!isDrawer || gamePhase !== 'drawing') return 'not-allowed';
 		if (tool === 'brush') return createBrushCursor(color, brushSize);
 		if (tool === 'eraser') return createEraserCursor(brushSize);
-		if (tool === 'rectangle' || tool === 'circle' || tool === 'line') return 'crosshair';
+		if (tool === 'rectangle' || tool === 'circle' || tool === 'line')
+			return 'crosshair';
 		return 'crosshair';
 	}, [tool, color, brushSize, isDrawer, gamePhase]);
 
@@ -133,18 +164,18 @@ export default function Canvas() {
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext('2d');
 		if (!canvas || !ctx) return;
-		
+
 		const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-		
+
 		// Remove any future history if we're not at the end
 		const newHistory = history.slice(0, historyIndex + 1);
 		newHistory.push(imageData);
-		
+
 		// Limit history to 30 states to prevent memory issues
 		if (newHistory.length > 30) {
 			newHistory.shift();
 		}
-		
+
 		setHistory(newHistory);
 		setHistoryIndex(newHistory.length - 1);
 	}, [canvasRef, history, historyIndex]);
@@ -152,16 +183,16 @@ export default function Canvas() {
 	// Undo
 	const handleUndo = useCallback(() => {
 		if (historyIndex <= 0) return;
-		
+
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext('2d');
 		if (!canvas || !ctx) return;
-		
+
 		isUndoRedoAction.current = true;
 		const newIndex = historyIndex - 1;
 		ctx.putImageData(history[newIndex], 0, 0);
 		setHistoryIndex(newIndex);
-		
+
 		// Sync canvas state to other players
 		setTimeout(() => emitCanvasSync(), 10);
 	}, [canvasRef, history, historyIndex, emitCanvasSync]);
@@ -169,16 +200,16 @@ export default function Canvas() {
 	// Redo
 	const handleRedo = useCallback(() => {
 		if (historyIndex >= history.length - 1) return;
-		
+
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext('2d');
 		if (!canvas || !ctx) return;
-		
+
 		isUndoRedoAction.current = true;
 		const newIndex = historyIndex + 1;
 		ctx.putImageData(history[newIndex], 0, 0);
 		setHistoryIndex(newIndex);
-		
+
 		// Sync canvas state to other players
 		setTimeout(() => emitCanvasSync(), 10);
 	}, [canvasRef, history, historyIndex, emitCanvasSync]);
@@ -187,16 +218,19 @@ export default function Canvas() {
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (!isDrawer || gamePhase !== 'drawing') return;
-			
+
 			if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
 				e.preventDefault();
 				handleUndo();
-			} else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+			} else if (
+				(e.ctrlKey || e.metaKey) &&
+				(e.key === 'y' || (e.key === 'z' && e.shiftKey))
+			) {
 				e.preventDefault();
 				handleRedo();
 			}
 		};
-		
+
 		window.addEventListener('keydown', handleKeyDown);
 		return () => window.removeEventListener('keydown', handleKeyDown);
 	}, [isDrawer, gamePhase, handleUndo, handleRedo]);
@@ -222,10 +256,13 @@ export default function Canvas() {
 	useEffect(() => {
 		const prevPhase = prevGamePhaseRef.current;
 		prevGamePhaseRef.current = gamePhase;
-		
+
 		// Only clear when transitioning TO roundEnd or gameEnd (not when already there)
-		if ((gamePhase === 'roundEnd' || gamePhase === 'gameEnd') && 
-			prevPhase !== 'roundEnd' && prevPhase !== 'gameEnd') {
+		if (
+			(gamePhase === 'roundEnd' || gamePhase === 'gameEnd') &&
+			prevPhase !== 'roundEnd' &&
+			prevPhase !== 'gameEnd'
+		) {
 			// Use setTimeout to avoid synchronous setState in effect
 			setTimeout(() => {
 				setHistory([]);
@@ -235,12 +272,14 @@ export default function Canvas() {
 	}, [gamePhase]);
 
 	const getCanvasCoords = (
-		e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+		e:
+			| React.MouseEvent<HTMLCanvasElement>
+			| React.TouchEvent<HTMLCanvasElement>,
 	) => {
 		const canvas = canvasRef.current;
 		if (!canvas) return { x: 0, y: 0 };
 		const rect = canvas.getBoundingClientRect();
-		
+
 		let clientX, clientY;
 		if ('touches' in e) {
 			clientX = e.touches[0].clientX;
@@ -257,13 +296,23 @@ export default function Canvas() {
 	};
 
 	// Draw shape on canvas
-	const drawShape = (ctx: CanvasRenderingContext2D, startX: number, startY: number, endX: number, endY: number, shapeType: ToolType, strokeColor: string, lineWidth: number, filled: boolean = false) => {
+	const drawShape = (
+		ctx: CanvasRenderingContext2D,
+		startX: number,
+		startY: number,
+		endX: number,
+		endY: number,
+		shapeType: ToolType,
+		strokeColor: string,
+		lineWidth: number,
+		filled: boolean = false,
+	) => {
 		ctx.beginPath();
 		ctx.strokeStyle = strokeColor;
 		ctx.lineWidth = lineWidth;
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
-		
+
 		if (shapeType === 'rectangle') {
 			const width = endX - startX;
 			const height = endY - startY;
@@ -293,13 +342,15 @@ export default function Canvas() {
 	};
 
 	const startDrawing = (
-		e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+		e:
+			| React.MouseEvent<HTMLCanvasElement>
+			| React.TouchEvent<HTMLCanvasElement>,
 	) => {
 		if (gamePhase !== 'drawing' || !isDrawer) return;
 		const coords = getCanvasCoords(e);
 		lastPos.current = coords;
 		setIsDrawing(true);
-		
+
 		// Handle fill tool
 		if (tool === 'fill') {
 			floodFill(Math.floor(coords.x), Math.floor(coords.y), color);
@@ -315,7 +366,7 @@ export default function Canvas() {
 			saveToHistory();
 			return;
 		}
-		
+
 		// Handle shape tools
 		if (tool === 'rectangle' || tool === 'circle' || tool === 'line') {
 			setShapeStart(coords);
@@ -338,31 +389,45 @@ export default function Canvas() {
 	};
 
 	const draw = (
-		e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+		e:
+			| React.MouseEvent<HTMLCanvasElement>
+			| React.TouchEvent<HTMLCanvasElement>,
 	) => {
 		if (!isDrawing || gamePhase !== 'drawing' || !isDrawer) return;
-		
+
 		const canvas = canvasRef.current;
 		const ctx = canvas?.getContext('2d');
 		if (!canvas || !ctx) return;
-		
+
 		const coords = getCanvasCoords(e);
-		
+
 		// Handle shape preview
-		if ((tool === 'rectangle' || tool === 'circle' || tool === 'line') && shapeStart) {
+		if (
+			(tool === 'rectangle' || tool === 'circle' || tool === 'line') &&
+			shapeStart
+		) {
 			setShapePreview(coords);
 			// Restore from temp canvas and draw preview
 			if (tempCanvasRef.current) {
 				ctx.drawImage(tempCanvasRef.current, 0, 0);
-				drawShape(ctx, shapeStart.x, shapeStart.y, coords.x, coords.y, tool, color, brushSize);
+				drawShape(
+					ctx,
+					shapeStart.x,
+					shapeStart.y,
+					coords.x,
+					coords.y,
+					tool,
+					color,
+					brushSize,
+				);
 			}
 			return;
 		}
-		
+
 		// Handle brush/eraser
 		if (tool === 'fill') return;
 		if (!lastPos.current) return;
-		
+
 		ctx.beginPath();
 		ctx.moveTo(lastPos.current.x, lastPos.current.y);
 		ctx.lineTo(coords.x, coords.y);
@@ -371,7 +436,7 @@ export default function Canvas() {
 		ctx.lineCap = 'round';
 		ctx.lineJoin = 'round';
 		ctx.stroke();
-		
+
 		const drawData: DrawData = {
 			type: 'draw',
 			x: coords.x,
@@ -389,7 +454,11 @@ export default function Canvas() {
 	const stopDrawing = () => {
 		if (isDrawing) {
 			// Finalize shape
-			if ((tool === 'rectangle' || tool === 'circle' || tool === 'line') && shapeStart && shapePreview) {
+			if (
+				(tool === 'rectangle' || tool === 'circle' || tool === 'line') &&
+				shapeStart &&
+				shapePreview
+			) {
 				// Emit shape data
 				const shapeData = {
 					type: 'draw' as const,
@@ -404,7 +473,7 @@ export default function Canvas() {
 				};
 				emitDraw(shapeData as DrawData);
 			}
-			
+
 			// Save to history after drawing action
 			if (!isUndoRedoAction.current) {
 				saveToHistory();
@@ -487,7 +556,7 @@ export default function Canvas() {
 	const handleDownload = () => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
-		
+
 		const dataUrl = canvas.toDataURL('image/png');
 		const link = document.createElement('a');
 		link.download = `doodle-drawing-${Date.now()}.png`;
@@ -501,7 +570,8 @@ export default function Canvas() {
 		setOpenDropdown((prev) => (prev === dropdown ? null : dropdown));
 	};
 
-	const isShapeTool = tool === 'rectangle' || tool === 'circle' || tool === 'line';
+	const isShapeTool =
+		tool === 'rectangle' || tool === 'circle' || tool === 'line';
 
 	return (
 		<div className="flex flex-col gap-2">
@@ -509,13 +579,22 @@ export default function Canvas() {
 			<motion.div
 				initial={{ opacity: 0, scale: 0.98 }}
 				animate={{ opacity: 1, scale: 1 }}
-				className="relative rounded-xl overflow-hidden shadow-lg border-2 border-border bg-card">
+				className="relative overflow-hidden bg-white"
+				style={{
+					borderRadius: '1.5rem',
+					border: '4px solid #ffffff',
+					boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+				}}>
 				<canvas
 					ref={canvasRef}
 					width={800}
 					height={600}
 					className="w-full touch-none select-none"
-					style={{ aspectRatio: '4/2.5', cursor: canvasCursor, touchAction: 'none' }}
+					style={{
+						aspectRatio: '4/2.5',
+						cursor: canvasCursor,
+						touchAction: 'none',
+					}}
 					onMouseDown={startDrawing}
 					onMouseMove={draw}
 					onMouseUp={stopDrawing}
@@ -527,15 +606,15 @@ export default function Canvas() {
 				{gamePhase !== 'drawing' && (
 					<div className="absolute inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center">
 						<span className="text-white font-bold px-4 py-2 bg-black/40 rounded-xl text-sm">
-							{gamePhase === 'choosing'
-								? '🎨 Selecting word...'
-								: gamePhase === 'lobby'
-								? '⏳ Waiting...'
-								: '🏁 Round ended'}
+							{gamePhase === 'choosing' ?
+								'🎨 Selecting word...'
+							: gamePhase === 'lobby' ?
+								'⏳ Waiting...'
+							:	'🏁 Round ended'}
 						</span>
 					</div>
 				)}
-				
+
 				{/* Download Button */}
 				<button
 					onClick={handleDownload}
@@ -573,9 +652,15 @@ export default function Canvas() {
 				<motion.div
 					initial={{ opacity: 0, y: 10 }}
 					animate={{ opacity: 1, y: 0 }}
-					className="flex flex-wrap items-center justify-center gap-1 p-2 bg-card rounded-xl shadow-md border border-border">
+					className="flex items-center justify-center gap-0.5 p-1.5 mt-3"
+					style={{
+						background: '#cbd5e1',
+						border: '3px solid #000000',
+						borderRadius: '1rem',
+						boxShadow: '0 4px 0 #000000',
+					}}>
 					{/* Undo/Redo */}
-					<div className="flex gap-0.5">
+					<div className="flex gap-0">
 						<ToolBtn
 							onClick={handleUndo}
 							title="Undo (Ctrl+Z)"
@@ -590,20 +675,20 @@ export default function Canvas() {
 						</ToolBtn>
 					</div>
 
-					<div className="w-px h-6 bg-border mx-1" />
+					<div className="w-px h-5 bg-border mx-0.5" />
 
 					{/* Color Picker Dropdown */}
 					<div className="relative">
 						<button
 							onClick={() => toggleDropdown('color')}
-							className="flex items-center gap-1 p-1.5 rounded-lg hover:bg-muted transition-all"
+							className="flex items-center gap-1 p-1.5 rounded-lg hover:bg-black/10 transition-all border-2 border-transparent hover:border-black/20"
 							title="Colors">
 							<div
-								className="w-6 h-6 rounded border-2 border-white/20 shadow-sm"
+								className="w-6 h-6 rounded-lg border-2 border-black/30 shadow-md"
 								style={{ backgroundColor: color }}
 							/>
 							<svg
-								className="w-3 h-3 text-muted-foreground"
+								className="w-3 h-3 text-black/60"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor">
@@ -621,28 +706,44 @@ export default function Canvas() {
 									initial={{ opacity: 0, y: -5 }}
 									animate={{ opacity: 1, y: 0 }}
 									exit={{ opacity: 0, y: -5 }}
-									className="absolute bottom-full left-0 mb-2 p-2 bg-popover rounded-xl shadow-xl border border-border z-100">
-									<div className="grid grid-cols-4 gap-1.5 mb-2">
+									className="absolute bottom-full left-0 mb-2 p-3 rounded-2xl border-2 border-black/20 z-50"
+									style={{
+										background: '#2c2c2e',
+										boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+									}}>
+									<div className="grid grid-cols-5 gap-2 mb-3">
 										{ALL_COLORS.map((c) => (
 											<button
 												key={c}
 												onClick={() => {
 													setColor(c);
 													if (!isShapeTool) setTool('brush');
+													setOpenDropdown(null);
 												}}
-												className={`w-7 h-7 rounded-lg transition-transform hover:scale-110 ${
-													color === c
-														? 'ring-2 ring-primary ring-offset-1 ring-offset-popover'
-														: ''
-												}`}
-												style={{
-													backgroundColor: c,
-													border: c === '#FFFFFF' ? '1px solid #444' : 'none',
-												}}
-											/>
+												className="group relative transition-all hover:scale-110"
+												title={c}>
+												<div
+													className={`w-7 h-7 rounded-lg transition-all ${
+														color === c ?
+															'ring-2 ring-[#007AFF] ring-offset-2'
+														:	'hover:shadow-lg'
+													}`}
+													style={{
+														backgroundColor: c,
+														border:
+															c === '#FFFFFF' ?
+																'1px solid rgba(0, 0, 0, 0.3)'
+															:	'1px solid rgba(255, 255, 255, 0.1)',
+														boxShadow:
+															color === c ?
+																'0 0 12px rgba(0, 122, 255, 0.4)'
+															:	'0 2px 8px rgba(0, 0, 0, 0.3)',
+													}}
+												/>
+											</button>
 										))}
 									</div>
-									<div className="flex items-center gap-2 pt-2 border-t border-border">
+									<div className="flex items-center gap-2 pt-3 border-t border-white/10">
 										<input
 											ref={colorInputRef}
 											type="color"
@@ -651,9 +752,9 @@ export default function Canvas() {
 												setColor(e.target.value);
 												if (!isShapeTool) setTool('brush');
 											}}
-											className="w-8 h-8 rounded cursor-pointer bg-transparent border-none"
+											className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-2 border-white/20 hover:border-white/40 transition-all"
 										/>
-										<span className="text-xs text-muted-foreground font-mono">
+										<span className="text-xs text-white/60 font-mono">
 											{color.toUpperCase()}
 										</span>
 									</div>
@@ -663,7 +764,7 @@ export default function Canvas() {
 					</div>
 
 					{/* Quick Colors */}
-					<div className="flex gap-0.5 px-1 gap-2">
+					<div className="flex gap-0.5 px-0.5">
 						{QUICK_COLORS.slice(0, 6).map((c) => (
 							<button
 								key={c}
@@ -672,9 +773,9 @@ export default function Canvas() {
 									if (!isShapeTool) setTool('brush');
 								}}
 								className={`w-5 h-5 rounded transition-transform hover:scale-110 ${
-									color === c && (tool === 'brush' || isShapeTool)
-										? 'ring-2 ring-primary ring-offset-1 ring-offset-card'
-										: ''
+									color === c && (tool === 'brush' || isShapeTool) ?
+										'ring-2 ring-primary ring-offset-1 ring-offset-card'
+									:	''
 								}`}
 								style={{
 									backgroundColor: c,
@@ -684,16 +785,16 @@ export default function Canvas() {
 						))}
 					</div>
 
-					<div className="w-px h-6 bg-border mx-1" />
+					<div className="w-px h-5 bg-border mx-0.5" />
 
 					{/* Brush Size Dropdown */}
 					<div className="relative">
 						<button
 							onClick={() => toggleDropdown('size')}
-							className="flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-muted transition-all text-xs font-medium text-muted-foreground hover:text-foreground"
+							className="flex items-center gap-1 px-2 py-1.5 rounded-lg border-2 border-transparent hover:border-black/20 hover:bg-black/10 transition-all text-xs font-bold text-black/60 hover:text-black"
 							title="Brush Size">
 							<div
-								className="w-3 h-3 rounded-full bg-foreground"
+								className="rounded-full bg-black"
 								style={{
 									width: Math.min(brushSize / 2, 12),
 									height: Math.min(brushSize / 2, 12),
@@ -701,7 +802,7 @@ export default function Canvas() {
 							/>
 							<span>{brushSize}px</span>
 							<svg
-								className="w-3 h-3 text-muted-foreground"
+								className="w-3 h-3 text-black/60"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor">
@@ -719,8 +820,12 @@ export default function Canvas() {
 									initial={{ opacity: 0, y: -5 }}
 									animate={{ opacity: 1, y: 0 }}
 									exit={{ opacity: 0, y: -5 }}
-									className="absolute bottom-full left-0 mb-2 p-2 bg-popover rounded-xl shadow-xl border border-border z-[100]">
-									<div className="flex gap-1">
+									className="absolute bottom-full left-0 mb-2 p-3 rounded-2xl border-2 border-black/20 z-[100]"
+									style={{
+										background: '#2c2c2e',
+										boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+									}}>
+									<div className="flex gap-2">
 										{BRUSH_SIZES.map((size) => (
 											<button
 												key={size}
@@ -728,20 +833,16 @@ export default function Canvas() {
 													setBrushSize(size);
 													setOpenDropdown(null);
 												}}
-												className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
-													brushSize === size
-														? 'bg-primary text-primary-foreground'
-														: 'bg-muted hover:bg-muted/80'
+												className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all border-2 font-bold ${
+													brushSize === size ?
+														'bg-[#007AFF] border-[#007AFF] shadow-lg shadow-[#007AFF]/40'
+													:	'bg-white/10 border-white/20 hover:border-white/40 hover:bg-white/20'
 												}`}>
 												<div
-													className={`rounded-full ${
-														brushSize === size
-															? 'bg-primary-foreground'
-															: 'bg-muted-foreground'
-													}`}
+													className="rounded-full bg-white"
 													style={{
-														width: Math.max(4, size * 0.6),
-														height: Math.max(4, size * 0.6),
+														width: Math.max(3, size * 0.4),
+														height: Math.max(3, size * 0.4),
 													}}
 												/>
 											</button>
@@ -752,10 +853,10 @@ export default function Canvas() {
 						</AnimatePresence>
 					</div>
 
-					<div className="w-px h-6 bg-border mx-1" />
+					<div className="w-px h-5 bg-border mx-0.5" />
 
 					{/* Tools */}
-					<div className="flex gap-0.5">
+					<div className="flex gap-0">
 						<ToolBtn
 							active={tool === 'brush'}
 							onClick={() => setTool('brush')}
@@ -815,10 +916,10 @@ export default function Canvas() {
 						</ToolBtn>
 					</div>
 
-					<div className="w-px h-6 bg-border mx-1" />
+					<div className="w-px h-5 bg-border mx-0.5" />
 
 					{/* Shape Tools */}
-					<div className="flex gap-0.5">
+					<div className="flex gap-0">
 						<ToolBtn
 							active={tool === 'rectangle'}
 							onClick={() => setTool('rectangle')}
@@ -839,7 +940,7 @@ export default function Canvas() {
 						</ToolBtn>
 					</div>
 
-					<div className="w-px h-6 bg-border mx-1" />
+					<div className="w-px h-5 bg-border mx-0.5" />
 
 					{/* Clear */}
 					<button

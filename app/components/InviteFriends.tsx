@@ -70,7 +70,13 @@ export default function InviteFriends({ isOpen, onClose }: InviteFriendsProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            className="w-full max-w-md p-6 sm:p-8 relative"
+            style={{
+              background: '#202936',
+              border: '4px solid #ffffff',
+              borderRadius: '1.5rem',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.4)'
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -81,7 +87,14 @@ export default function InviteFriends({ isOpen, onClose }: InviteFriendsProps) {
               </h2>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2 transition-all hover:scale-105 active:translate-y-0.5 active:shadow-none"
+                style={{
+                  background: '#ff8a65',
+                  border: '2px solid #000000',
+                  borderRadius: '0.75rem',
+                  boxShadow: '0 2px 0 #000000',
+                  color: '#000000'
+                }}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -89,16 +102,29 @@ export default function InviteFriends({ isOpen, onClose }: InviteFriendsProps) {
 
             {/* Room Code */}
             <div className="mb-6">
-              <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
+              <label className="block text-xs font-bold text-white mb-2 uppercase tracking-wide">
                 Room Code
               </label>
               <div className="flex items-center gap-2">
-                <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-4 py-3 font-mono text-2xl font-bold text-center tracking-widest text-foreground">
+                <div className="flex-1 px-4 py-3 font-mono text-2xl font-bold tracking-widest"
+                  style={{
+                    background: '#2d3748',
+                    border: '2px solid #a0aec0',
+                    borderRadius: '0.75rem',
+                    color: '#ffffff'
+                  }}>
                   {roomId}
                 </div>
                 <button
                   onClick={handleCopyCode}
-                  className="p-3 bg-secondary hover:bg-secondary/80 rounded-xl transition-colors"
+                  className="p-3 transition-all hover:scale-105 active:translate-y-0.5 active:shadow-none"
+                  style={{
+                    background: '#cbd5e1',
+                    border: '2px solid #000000',
+                    borderRadius: '0.75rem',
+                    boxShadow: '0 4px 0 #000000',
+                    color: '#000000'
+                  }}
                   title="Copy code"
                 >
                   {copied ? (
@@ -112,16 +138,29 @@ export default function InviteFriends({ isOpen, onClose }: InviteFriendsProps) {
 
             {/* Room Link */}
             <div className="mb-6">
-              <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
+              <label className="block text-xs font-bold text-white mb-2 uppercase tracking-wide">
                 Share Link
               </label>
               <div className="flex items-center gap-2">
-                <div className="flex-1 bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground truncate font-mono">
+                <div className="flex-1 px-4 py-3 text-[15px] truncate font-mono"
+                  style={{
+                    background: '#2d3748',
+                    border: '2px solid #a0aec0',
+                    borderRadius: '0.75rem',
+                    color: '#ffffff'
+                  }}>
                   {roomUrl}
                 </div>
                 <button
                   onClick={handleCopyLink}
-                  className="p-3 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl transition-colors"
+                  className="p-3 transition-all hover:scale-105 active:translate-y-0.5 active:shadow-none"
+                  style={{
+                    background: '#4fc3f7',
+                    border: '2px solid #000000',
+                    borderRadius: '0.75rem',
+                    boxShadow: '0 4px 0 #000000',
+                    color: '#000000'
+                  }}
                   title="Copy link"
                 >
                   {copied ? (
@@ -136,7 +175,14 @@ export default function InviteFriends({ isOpen, onClose }: InviteFriendsProps) {
             {/* Share Button */}
             <button
               onClick={handleNativeShare}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-linear-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold transition-all hover:opacity-90 shadow-lg shadow-purple-500/20"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[18px] font-bold transition-all hover:scale-[1.02] active:translate-y-1 active:shadow-none"
+              style={{
+                background: '#4fc3f7',
+                border: '2px solid #000000',
+                borderRadius: '0.75rem',
+                boxShadow: '0 4px 0 #000000',
+                color: '#000000'
+              }}
             >
               <Share2 className="w-5 h-5" />
               Share with Friends
@@ -159,7 +205,14 @@ export function InviteButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-lg transition-all text-sm font-medium"
+      className="flex items-center gap-1.5 px-3 py-1.5 transition-all text-[15px] font-bold hover:scale-105 active:translate-y-0.5 active:shadow-none"
+      style={{
+        background: '#4fc3f7',
+        border: '2px solid #000000',
+        borderRadius: '0.75rem',
+        boxShadow: '0 2px 0 #000000',
+        color: '#000000'
+      }}
       title="Invite Friends"
     >
       <Users className="w-4 h-4" />

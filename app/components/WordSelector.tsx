@@ -26,10 +26,13 @@ export default function WordSelector() {
       className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-md p-4"
     >
       <motion.div
-        initial={{ scale: 0.95, opacity: 0, y: 10 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 10 }}
-        className="bg-card/95 border border-white/10 rounded-2xl p-6 shadow-2xl max-w-2xl w-full text-center backdrop-blur-xl ring-1 ring-white/5"
+        className="w-full max-w-2xl text-center relative p-6 sm:p-8"
+        style={{
+          background: '#202936',
+          border: '4px solid #ffffff',
+          borderRadius: '1.5rem',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+        }}
       >
         {isDrawer ? (
           <div className="flex flex-col items-center">
@@ -38,12 +41,12 @@ export default function WordSelector() {
                 <Palette className="w-6 h-6 text-primary" />
               </div>
               <div className="flex flex-col items-start">
-                <h2 className="text-xl font-bold text-foreground leading-tight">
+                <h2 className="text-2xl font-bold text-white leading-tight">
                   Your Turn to Draw!
                 </h2>
-                <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  <Clock className="w-3 h-3" />
-                  <span className={roundTime <= 5 ? 'text-red-500 animate-pulse' : 'text-primary'}>
+                <div className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider">
+                  <Clock className="w-4 h-4" />
+                  <span className={roundTime <= 5 ? 'text-[#ffb74d] animate-pulse' : 'text-[#4fc3f7]'}>
                     {roundTime}s remaining
                   </span>
                 </div>
@@ -57,20 +60,25 @@ export default function WordSelector() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95, y: 4, boxShadow: 'none' }}
                   onClick={() => selectWord(word)}
-                  className="group relative flex flex-col items-center justify-center p-6 rounded-xl border border-white/10 bg-secondary/30 hover:bg-primary hover:border-primary/50 transition-all duration-300 overflow-hidden"
+                  className="group relative flex flex-col items-center justify-center p-6 transition-all duration-300"
+                  style={{
+                    background: '#cbd5e1',
+                    border: '3px solid #000000',
+                    borderRadius: '1rem',
+                    boxShadow: '0 6px 0 #000000',
+                    color: '#000000'
+                  }}
                 >
-                  <div className="absolute inset-0 bg-linear-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  
-                  <span className="text-lg font-bold text-foreground group-hover:text-primary-foreground capitalize mb-2 relative z-10">
+                  <span className="text-2xl font-bold capitalize mb-2 relative z-10 transition-colors group-hover:text-[#0056b3]">
                     {word}
                   </span>
                   
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 group-hover:bg-black/10 transition-colors">
-                    <Type className="w-3 h-3 text-muted-foreground group-hover:text-primary-foreground/70" />
-                    <span className="text-xs font-medium text-muted-foreground group-hover:text-primary-foreground/90">
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/10">
+                    <Type className="w-4 h-4" />
+                    <span className="text-sm font-bold">
                       {word.length} letters
                     </span>
                   </div>
@@ -97,14 +105,18 @@ export default function WordSelector() {
               </div>
             </div>
 
-            <h2 className="text-2xl font-bold text-foreground mb-2">
-              <span className="text-primary">{drawer?.name}</span> is choosing
+            <h2 className="text-2xl font-bold text-white mb-2">
+              <span className="text-[#3bbdf5]">{drawer?.name}</span> is choosing
             </h2>
             
-            <div className="flex items-center gap-2 text-sm text-muted-foreground bg-secondary/30 px-4 py-2 rounded-full border border-white/5">
-              <Clock className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-[15px] text-white px-4 py-2 mt-4 font-bold rounded-xl"
+              style={{
+                background: '#2d3748',
+                border: '2px solid #a0aec0',
+              }}>
+              <Clock className="w-5 h-5" />
               <span>Time remaining:</span>
-              <span className={`font-mono font-bold ${roundTime <= 5 ? 'text-red-500' : 'text-foreground'}`}>
+              <span className={`font-mono text-xl ml-2 ${roundTime <= 5 ? 'text-[#ffb74d]' : 'text-[#4fc3f7]'}`}>
                 {roundTime}s
               </span>
             </div>

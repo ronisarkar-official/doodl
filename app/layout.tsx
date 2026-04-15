@@ -1,14 +1,19 @@
 import type { Metadata } from 'next';
-import { Nunito } from 'next/font/google';
+import { Nunito, Kalam } from 'next/font/google';
 import './globals.css';
 import { GameProvider } from './context/GameContext';
-import { ThemeProvider } from './context/ThemeContext';
 import Navbar from './components/Navbar';
 
 const nunito = Nunito({
 	variable: '--font-nunito',
 	subsets: ['latin'],
 	weight: ['300', '400', '500', '600', '700', '800'],
+});
+
+const kalam = Kalam({
+	variable: '--font-kalam',
+	subsets: ['latin'],
+	weight: ['300', '400', '700'],
 });
 
 export const viewport = {
@@ -92,15 +97,13 @@ export default function RootLayout({
 			className="dark"
 			suppressHydrationWarning>
 			<body
-				className={`${nunito.variable} font-sans antialiased h-screen w-screen overflow-hidden`}
-				style={{ fontFamily: 'var(--font-nunito), sans-serif' }}
+				className={`${nunito.variable} ${kalam.variable} font-sans antialiased h-screen w-screen overflow-hidden`}
+				style={{ fontFamily: 'var(--font-kalam), sans-serif' }}
 				suppressHydrationWarning>
-				<ThemeProvider>
-					<GameProvider>
-						<Navbar />
-						{children}
-					</GameProvider>
-				</ThemeProvider>
+				<GameProvider>
+					<Navbar />
+					{children}
+				</GameProvider>
 			</body>
 		</html>
 	);

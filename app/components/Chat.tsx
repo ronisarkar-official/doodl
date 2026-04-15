@@ -186,7 +186,7 @@ export default function Chat(): React.JSX.Element {
 	return (
 		<>
 			<Confetti active={showConfetti} />
-			<div className="flex flex-col h-full bg-sidebar overflow-hidden">
+			<div className="flex flex-col h-full overflow-hidden" style={{ background: '#202936' }}>
 				{/* Messages */}
 				<div className="flex-1 min-h-0 overflow-hidden">
 					<ScrollArea className="h-full">
@@ -204,22 +204,22 @@ export default function Chat(): React.JSX.Element {
 										animate={{ opacity: 1, x: 0 }}
 										exit={{ opacity: 0, x: -8 }}
 										transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-										className={`text-sm py-1 px-2 rounded wrap-break-word max-w-full leading-relaxed ${
+										className={`text-[15px] py-1.5 px-3 rounded-xl wrap-break-word max-w-full leading-relaxed font-bold border-2 ${
 											msg.isSystem
-												? 'text-muted-foreground italic text-xs text-center my-2'
+												? 'text-white/60 italic text-sm text-center my-2 mb-3 border-transparent bg-transparent'
 												: msg.isCorrect
-												? 'bg-green-500/10 text-green-500 border border-green-500/20'
-												: 'hover:bg-secondary/50'
+												? 'bg-[#3bbdf5]/20 text-[#3bbdf5] border-[#3bbdf5]/40'
+												: 'bg-[#2d3748] text-white border-transparent'
 										}`}>
 										{!msg.isSystem && (
 											<span
-												className={`font-semibold mr-2 ${
-													msg.isCorrect ? 'text-green-500' : 'text-primary'
+												className={`mr-2 ${
+													msg.isCorrect ? 'text-[#3bbdf5]' : 'text-white/60'
 												}`}>
 												{msg.playerName}:
 											</span>
 										)}
-										<span className={msg.isSystem ? '' : 'text-foreground'}>
+										<span className={msg.isSystem ? '' : 'text-white'}>
 											{msg.text}
 										</span>
 									</motion.div>
@@ -232,7 +232,7 @@ export default function Chat(): React.JSX.Element {
 
 				{/* Typing Indicator */}
 				{otherTypingPlayers.length > 0 && (
-					<div className="px-3 py-1 text-xs text-muted-foreground animate-pulse">
+					<div className="px-3 py-1 text-xs text-white/50 animate-pulse font-bold">
 						{otherTypingPlayers.length === 1
 							? `${otherTypingPlayers[0]} is typing...`
 							: `${otherTypingPlayers.length} people are typing...`}
@@ -247,7 +247,13 @@ export default function Chat(): React.JSX.Element {
 							<button
 								key={msg}
 								onClick={() => handleQuickMessage(msg)}
-								className="px-2.5 py-1 text-xs font-medium bg-secondary/70 hover:bg-secondary text-muted-foreground hover:text-foreground rounded-md border border-border/50 transition-all hover:scale-105">
+								className="px-2.5 py-1 text-[13px] font-bold rounded-lg transition-all hover:scale-105 active:translate-y-0.5 active:shadow-none"
+								style={{
+									background: '#cbd5e1',
+									border: '2px solid #000000',
+									color: '#000000',
+									boxShadow: '0 2px 0 #000000',
+								}}>
 								{msg}
 							</button>
 						))}
@@ -258,7 +264,7 @@ export default function Chat(): React.JSX.Element {
 				<EmoteQuickBar />
 
 				{/* Input Area */}
-				<div className="p-3 border-t border-sidebar-border bg-sidebar">
+				<div className="p-3 border-t-[3px] border-white" style={{ background: '#202936' }}>
 					<form
 						onSubmit={(e) => handleSubmit(e)}
 						className="relative">
@@ -270,11 +276,15 @@ export default function Chat(): React.JSX.Element {
 							onKeyDown={handleKeyDown}
 							placeholder={inputState.placeholder}
 							disabled={inputState.disabled}
-							className={`w-full bg-input text-foreground text-sm pl-3 pr-20 py-2.5 rounded-md border border-transparent focus:border-primary focus:outline-none transition-all placeholder:text-muted-foreground ${
+							className={`w-full text-white text-[15px] font-bold pl-3 pr-20 py-3 rounded-xl focus:outline-none transition-all placeholder:text-white/40 ${
 								inputState.disabled
 									? 'opacity-50 cursor-not-allowed'
-									: 'hover:bg-secondary focus:bg-background'
+									: ''
 							}`}
+							style={{
+								background: '#2d3748',
+								border: '2px solid #a0aec0',
+							}}
 						/>
 
 						{/* Send button and Emote picker */}

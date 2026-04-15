@@ -75,13 +75,13 @@ export default function PlayerList() {
 						animate={{ opacity: 1, x: 0 }}
 						exit={{ opacity: 0, scale: 0.9 }}
 						transition={{ duration: 0.2 }}
-						className={`group relative flex items-center gap-2 p-2.5 rounded-xl border transition-all w-full ${
+						className={`group relative flex items-center gap-2 p-2.5 rounded-xl border-2 transition-all w-full ${
 							player.id === playerId
-								? 'bg-primary/10 border-primary/30'
-								: 'bg-secondary/30 border-border/50 hover:bg-secondary/50 hover:border-border'
+								? 'bg-[#3bbdf5]/20 border-[#3bbdf5]/40'
+								: 'bg-[#2d3748] border-transparent hover:border-[#a0aec0]'
 						} ${
 							player.isDrawing
-								? 'ring-2 ring-amber-500/40 bg-amber-500/5'
+								? 'border-[#000000] bg-[#4fc3f7] text-[#000000] shadow-[0_4px_0_#000000] -translate-y-[2px]'
 								: ''
 						}`}>
 						{/* Rank */}
@@ -140,10 +140,12 @@ export default function PlayerList() {
 							<div className="flex-1 min-w-0 flex flex-col justify-center">
 								<div className="flex items-center gap-1.5">
 									<span
-										className={`text-sm font-semibold truncate ${
-											player.id === playerId
-												? 'text-primary'
-												: 'text-foreground'
+										className={`text-[15px] font-bold truncate ${
+											player.isDrawing
+												? 'text-black'
+												: player.id === playerId
+												? 'text-[#3bbdf5]'
+												: 'text-white'
 										}`}>
 										{player.name}
 									</span>
@@ -153,7 +155,7 @@ export default function PlayerList() {
 								</div>
 
 								<div className="flex items-center justify-between">
-									<span className="text-[10px] sm:text-xs text-muted-foreground font-medium flex items-center gap-1">
+									<span className={`text-[11px] sm:text-xs font-bold flex items-center gap-1 ${player.isDrawing ? 'text-black/60' : 'text-white/50'}`}>
 										{player.id === playerId
 											? 'You'
 											: player.isDrawing
@@ -172,8 +174,8 @@ export default function PlayerList() {
 								isOwner && player.id !== playerId ? 'group-hover:opacity-0' : ''
 							}`}>
 							<span
-								className={`font-mono font-bold text-sm ${
-									index === 0 ? 'text-amber-500' : 'text-foreground'
+								className={`font-mono font-bold text-[15px] ${
+									index === 0 ? 'text-amber-500' : player.isDrawing ? 'text-black' : 'text-white'
 								}`}>
 								{player.score}
 							</span>
@@ -220,7 +222,7 @@ export default function PlayerList() {
 			</AnimatePresence>
 
 			{players.length === 0 && (
-				<div className="text-center text-muted-foreground text-xs py-8 italic bg-secondary/20 rounded-xl border border-border/50 border-dashed">
+				<div className="text-center font-bold text-white/50 text-[15px] py-8 bg-[#2d3748] rounded-xl border-2 border-[#a0aec0] border-dashed mt-4 mx-2">
 					Waiting for players...
 				</div>
 			)}

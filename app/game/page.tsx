@@ -5,7 +5,6 @@ import { motion } from 'motion/react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { LogOut, Users, ChevronDown } from 'lucide-react';
 import Canvas from '../components/Canvas';
-import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Chat from '../components/Chat';
 import PlayerList from '../components/PlayerList';
@@ -13,7 +12,7 @@ import Timer from '../components/Timer';
 import WordHint from '../components/WordHint';
 import WordSelector from '../components/WordSelector';
 import RoundEnd from '../components/RoundEnd';
-import SettingsPopup from '../components/Settings';
+
 import InviteFriends, { InviteButton } from '../components/InviteFriends';
 import EmoteReactions from '../components/EmoteReactions';
 import { useGame } from '../context/GameContext';
@@ -90,20 +89,34 @@ function GameContent() {
 	};
 
 	return (
-		<div className="h-[100dvh] w-screen bg-background text-foreground flex flex-col overflow-hidden">
-			{/* Top Bar - macOS Style */}
-			<div className="h-20 sm:h-14 border-b border-border/50 glass flex items-center justify-between px-2 sm:px-4 z-10">
+		<div
+			className="h-[100dvh] w-screen flex flex-col overflow-hidden"
+			style={{ background: '#1a2535' }}>
+			{/* Top Bar - Doodle Style */}
+			<div className="h-20 sm:h-16 border-b-[3px] border-white flex items-center justify-between px-2 sm:px-4 z-10 bg-[#202936]">
 				{/* Left: Logo & Room Info */}
 				<div className="flex items-center gap-2 sm:gap-4 min-w-0 shrink-0">
 					{/* Logo */}
 					<div className="flex items-center gap-1.5 sm:gap-2.5">
-						<Image
-													src="/images/logo.png"
-													alt="doodl"
-													width={100}
-													height={100}
-													className="drop-shadow-lg"
-												/>
+						<span
+							className="font-bold text-white leading-none select-none"
+							style={{
+								fontSize: '1.8rem',
+								letterSpacing: '0.02em',
+							}}>
+							Doodl
+							<span
+								className="inline-block ml-1"
+								style={{
+									fontSize: '0.8em',
+									verticalAlign: 'middle',
+									transform: 'rotate(-10deg) translateY(-2px)',
+									display: 'inline-block',
+								}}
+								aria-hidden="true">
+								✏️
+							</span>
+						</span>
 					</div>
 
 					{/* Room Info - Only show for private rooms and owner */}
@@ -153,9 +166,9 @@ function GameContent() {
 					<button
 						onClick={() => setShowMobilePlayers(!showMobilePlayers)}
 						className={`lg:hidden flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-lg transition-all duration-200 text-xs sm:text-sm font-medium ${
-							showMobilePlayers
-								? 'bg-primary/20 text-primary border border-primary/30'
-								: 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'
+							showMobilePlayers ?
+								'bg-primary/20 text-primary border border-primary/30'
+							:	'text-muted-foreground hover:text-foreground hover:bg-secondary/80'
 						}`}>
 						<Users className="w-4 h-4" />
 						<span className="hidden sm:inline">{players.length}</span>
@@ -168,8 +181,6 @@ function GameContent() {
 
 					{/* Invite Friends Button */}
 					<InviteButton onClick={() => setShowInviteModal(true)} />
-
-					<SettingsPopup />
 
 					<div className="w-px h-5 sm:h-6 bg-border/50 hidden sm:block"></div>
 
@@ -186,7 +197,7 @@ function GameContent() {
 			{/* Main Workspace Layout */}
 			<div className="relative flex-1 w-full h-full overflow-hidden">
 				{/* Left Sidebar - Players */}
-				<div className="absolute left-0 top-0 bottom-0 w-64 bg-card/80 backdrop-blur-xl border-r border-border/50 hidden lg:flex flex-col overflow-hidden z-20">
+				<div className="absolute left-0 top-0 bottom-0 w-64 bg-[#202936] border-r-[3px] border-white hidden lg:flex flex-col overflow-hidden z-20">
 					<div className="p-3 border-b border-border/50 font-medium text-sm text-muted-foreground uppercase tracking-wider shrink-0">
 						Players ({players.length})
 					</div>
@@ -200,13 +211,22 @@ function GameContent() {
 				</div>
 
 				{/* Center - Canvas/Lobby */}
-				<div className="absolute left-0 lg:left-64 right-0 lg:right-80 top-0 bottom-0 bg-background flex flex-col overflow-hidden z-10">
-					{gamePhase === 'lobby' ? (
+				<div
+					className="absolute left-0 lg:left-64 right-0 lg:right-80 top-0 bottom-0 flex flex-col overflow-hidden z-10"
+					style={{ background: '#1a2535' }}>
+					{gamePhase === 'lobby' ?
 						<div className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-8">
 							<motion.div
 								initial={{ opacity: 0, y: 20 }}
 								animate={{ opacity: 1, y: 0 }}
-								className="max-w-md w-full bg-card/80 backdrop-blur-xl border border-border/50 rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8">
+								className="max-w-md w-full relative"
+								style={{
+									background: '#202936',
+									border: '4px solid #ffffff',
+									borderRadius: '1.5rem',
+									padding: '2rem',
+									boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+								}}>
 								<div className="text-center mb-4 sm:mb-6 md:mb-8">
 									<div className="hidden lg:flex w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-primary/20 text-primary rounded-xl sm:rounded-2xl items-center justify-center text-2xl sm:text-3xl mx-auto mb-3 sm:mb-4">
 										🎨
@@ -233,11 +253,11 @@ function GameContent() {
 														onClick={() => handleRoundsChange(num)}
 														disabled={!isOwner}
 														className={`h-8 sm:h-10 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all ${
-															settingsRounds === num
-																? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-																: isOwner
-																? 'bg-secondary/70 hover:bg-secondary text-foreground border border-border/50'
-																: 'bg-secondary/30 text-muted-foreground cursor-not-allowed'
+															settingsRounds === num ?
+																'bg-[#4fc3f7] text-black border-2 border-black shadow-[0_4px_0_#000000]'
+															: isOwner ?
+																'bg-[#cbd5e1] hover:bg-[#94a3b8] text-black border-2 border-black shadow-[0_4px_0_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-none'
+															:	'bg-secondary/30 text-white/40 cursor-not-allowed border-2 border-transparent'
 														}`}>
 														{num}
 													</button>
@@ -246,21 +266,21 @@ function GameContent() {
 										</div>
 
 										<div>
-											<label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-2 sm:mb-3 uppercase tracking-wider">
+											<label className="block text-[10px] sm:text-[13px] font-bold text-white mb-2 sm:mb-3 uppercase tracking-widest">
 												Draw Time
 											</label>
-											<div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+											<div className="grid grid-cols-3 gap-1.5 sm:gap-3">
 												{[30, 60, 80, 100, 120, 180].map((time) => (
 													<button
 														key={time}
 														onClick={() => handleTimeChange(time)}
 														disabled={!isOwner}
-														className={`h-8 sm:h-10 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all ${
-															settingsTime === time
-																? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-																: isOwner
-																? 'bg-secondary/70 hover:bg-secondary text-foreground border border-border/50'
-																: 'bg-secondary/30 text-muted-foreground cursor-not-allowed'
+														className={`h-8 sm:h-11 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all ${
+															settingsTime === time ?
+																'bg-[#4fc3f7] text-black border-2 border-black shadow-[0_4px_0_#000000]'
+															: isOwner ?
+																'bg-[#cbd5e1] hover:bg-[#94a3b8] text-black border-2 border-black shadow-[0_4px_0_rgba(0,0,0,0.5)] active:translate-y-1 active:shadow-none'
+															:	'bg-secondary/30 text-white/40 cursor-not-allowed border-2 border-transparent'
 														}`}>
 														{time}s
 													</button>
@@ -270,41 +290,46 @@ function GameContent() {
 									</div>
 								)}
 
-								{isOwner && players.length >= 2 ? (
+								{isOwner && players.length >= 2 ?
 									<button
 										onClick={startGame}
-										className="w-full py-2.5 sm:py-3 bg-primary hover:bg-primary/90 text-primary-foreground text-sm sm:text-base font-bold rounded-lg sm:rounded-xl transition-all shadow-lg shadow-primary/30">
+										className="w-full h-14 rounded-xl text-[20px] font-bold flex flex-row items-center justify-center gap-2 transition-all mt-4"
+										style={{
+											background: '#4fc3f7',
+											color: '#000000',
+											border: '2px solid #000000',
+											boxShadow: '0 4px 0 #000000',
+										}}>
 										Start Game
 									</button>
-								) : !isOwner ? (
+								: !isOwner ?
 									<div className="text-center p-3 sm:p-4 bg-secondary/30 rounded-lg sm:rounded-xl border border-border/50 border-dashed">
 										<p className="text-xs sm:text-sm text-muted-foreground">
 											Waiting for host to start...
 										</p>
 									</div>
-								) : (
-									<div className="text-center p-3 sm:p-4 bg-secondary/30 rounded-lg sm:rounded-xl border border-border/50 border-dashed">
+								:	<div className="text-center p-3 sm:p-4 bg-secondary/30 rounded-lg sm:rounded-xl border border-border/50 border-dashed">
 										<p className="text-xs sm:text-sm text-muted-foreground">
 											Need at least 2 players to start
 										</p>
 									</div>
-								)}
+								}
 							</motion.div>
 						</div>
-					) : (
-						<div className="flex-1 flex items-center justify-center p-4 bg-secondary/20">
+					:	<div className="flex-1 flex items-center justify-center p-4 bg-secondary/20">
 							<div className="flex flex-col items-center gap-2">
 								<div className="relative shadow-2xl rounded-2xl overflow-hidden border border-border/30">
 									<Canvas />
 									{/* Live Reactions floating over canvas */}
 									<EmoteReactions />
-								</div></div>
+								</div>
+							</div>
 						</div>
-					)}
+					}
 				</div>
 
 				{/* Right Sidebar - Chat */}
-				<div className="absolute right-0 top-0 bottom-0 w-80 bg-card/80 backdrop-blur-xl border-l border-border/50 hidden lg:flex flex-col overflow-hidden z-20">
+				<div className="absolute right-0 top-0 bottom-0 w-80 bg-[#202936] border-l-[3px] border-white hidden lg:flex flex-col overflow-hidden z-20">
 					<div className="p-3 border-b border-border/50 font-medium text-sm text-muted-foreground uppercase tracking-wider shrink-0">
 						Chat & Guesses
 					</div>
@@ -353,7 +378,10 @@ function GameContent() {
 
 			{/* Modals */}
 			<WordSelector />
-			<InviteFriends isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} />
+			<InviteFriends
+				isOpen={showInviteModal}
+				onClose={() => setShowInviteModal(false)}
+			/>
 			<RoundEnd />
 		</div>
 	);

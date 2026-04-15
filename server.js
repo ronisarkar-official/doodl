@@ -11,7 +11,295 @@ const port = parseInt(process.env.PORT || '3000', 10);
 const app = next({ dev, hostname, port });
 const handler = app.getRequestHandler();
 
+const MIN_ROOM_ID_LENGTH = 4;
+const MAX_ROOM_ID_LENGTH = 8;
+const MAX_PLAYER_NAME_LENGTH = 24;
+const MAX_CHAT_MESSAGE_LENGTH = 120;
+const MAX_WORD_LENGTH = 64;
+const MAX_EMOTE_LENGTH = 16;
+const MAX_DRAW_COORDINATE = 10000;
+const MAX_BRUSH_SIZE = 120;
+
+const EVENT_RATE_LIMITS = {
+	quickPlay: { limit: 5, windowMs: 10000 },
+	joinRoom: { limit: 6, windowMs: 15000 },
+	sendMessage: { limit: 12, windowMs: 10000 },
+	lobbyMessage: { limit: 10, windowMs: 10000 },
+	typing: { limit: 12, windowMs: 5000 },
+	sendEmote: { limit: 8, windowMs: 10000 },
+	draw: { limit: 240, windowMs: 5000 },
+	clearCanvas: { limit: 12, windowMs: 5000 },
+	canvasSync: { limit: 5, windowMs: 10000 },
+	updateSettings: { limit: 8, windowMs: 10000 },
+};
+
+const DRAW_TYPES = new Set(['start', 'draw', 'end']);
+const DRAW_TOOLS = new Set(['brush', 'eraser', 'fill']);
+const DRAW_SHAPES = new Set(['rectangle', 'circle', 'line']);
+const IMAGE_DATA_URL_RE = /^data:image\/(?:png|jpeg|webp);base64,/i;
+
+function parsePositiveInt(raw, fallback, min, max) {
+	const parsed = Number.parseInt(raw ?? '', 10);
+	if (!Number.isFinite(parsed)) return fallback;
+	return Math.min(max, Math.max(min, parsed));
+}
+
+const CHAT_HISTORY_LIMIT = parsePositiveInt(
+	process.env.CHAT_HISTORY_LIMIT,
+	200,
+	20,
+	1000,
+);
+const MAX_ROOMS = parsePositiveInt(process.env.MAX_ROOMS, 500, 10, 5000);
+const MAX_CANVAS_SYNC_BYTES = parsePositiveInt(
+	process.env.MAX_CANVAS_SYNC_BYTES,
+	2 * 1024 * 1024,
+	1024,
+	10 * 1024 * 1024,
+);
+const SOCKET_MAX_HTTP_BUFFER_SIZE = parsePositiveInt(
+	process.env.SOCKET_MAX_HTTP_BUFFER_SIZE,
+	2 * 1024 * 1024,
+	1024,
+	10 * 1024 * 1024,
+);
+
+function normalizeOrigin(value) {
+	if (typeof value !== 'string') return null;
+	try {
+		return new URL(value).origin;
+	} catch {
+		return null;
+	}
+}
+
+const configuredAllowedOrigins = new Set(
+	(process.env.ALLOWED_ORIGINS || '')
+		.split(',')
+		.map((origin) => normalizeOrigin(origin.trim()))
+		.filter(Boolean),
+);
+
+const defaultAllowedOrigins = new Set(
+	[
+		`http://${hostname}:${port}`,
+		`https://${hostname}:${port}`,
+		`http://${hostname}`,
+		`https://${hostname}`,
+		`http://localhost:${port}`,
+		`https://localhost:${port}`,
+		`http://127.0.0.1:${port}`,
+		`https://127.0.0.1:${port}`,
+	]
+		.map(normalizeOrigin)
+		.filter(Boolean),
+);
+
+function isOriginAllowed(origin) {
+	// Non-browser or same-origin clients may not send an Origin header.
+	if (!origin) return true;
+	const normalizedOrigin = normalizeOrigin(origin);
+	if (!normalizedOrigin) return false;
+	if (configuredAllowedOrigins.size > 0) {
+		return configuredAllowedOrigins.has(normalizedOrigin);
+	}
+	return defaultAllowedOrigins.has(normalizedOrigin);
+}
+
+function sanitizeText(value, maxLength) {
+	if (typeof value !== 'string') return '';
+	return value
+		.replace(/[\u0000-\u001F\u007F]/g, '')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.slice(0, maxLength);
+}
+
+function sanitizePlayerName(name) {
+	return sanitizeText(name, MAX_PLAYER_NAME_LENGTH) || 'Player';
+}
+
+function normalizeRoomId(roomId) {
+	if (typeof roomId !== 'string') return null;
+	const cleaned = roomId
+		.toUpperCase()
+		.replace(/[^A-Z0-9]/g, '')
+		.slice(0, MAX_ROOM_ID_LENGTH);
+	if (cleaned.length < MIN_ROOM_ID_LENGTH) return null;
+	return cleaned;
+}
+
+function clamp(value, min, max) {
+	if (!Number.isFinite(value)) return min;
+	return Math.min(max, Math.max(min, value));
+}
+
+function isFiniteNumber(value) {
+	return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isValidHexColor(color) {
+	return typeof color === 'string' && /^#[0-9A-Fa-f]{6}$/.test(color);
+}
+
+function isValidDrawPayload(drawData) {
+	if (!drawData || typeof drawData !== 'object') return false;
+	if (!DRAW_TYPES.has(drawData.type)) return false;
+	if (!DRAW_TOOLS.has(drawData.tool)) return false;
+	if (!isFiniteNumber(drawData.x) || !isFiniteNumber(drawData.y)) return false;
+	if (
+		Math.abs(drawData.x) > MAX_DRAW_COORDINATE ||
+		Math.abs(drawData.y) > MAX_DRAW_COORDINATE
+	) {
+		return false;
+	}
+	if (!isValidHexColor(drawData.color)) return false;
+	if (
+		!isFiniteNumber(drawData.brushSize) ||
+		drawData.brushSize < 1 ||
+		drawData.brushSize > MAX_BRUSH_SIZE
+	) {
+		return false;
+	}
+	if (
+		drawData.prevX !== undefined &&
+		(!isFiniteNumber(drawData.prevX) ||
+			Math.abs(drawData.prevX) > MAX_DRAW_COORDINATE)
+	) {
+		return false;
+	}
+	if (
+		drawData.prevY !== undefined &&
+		(!isFiniteNumber(drawData.prevY) ||
+			Math.abs(drawData.prevY) > MAX_DRAW_COORDINATE)
+	) {
+		return false;
+	}
+	if (drawData.shape !== undefined && !DRAW_SHAPES.has(drawData.shape)) {
+		return false;
+	}
+	return true;
+}
+
+function isValidCanvasDataUrl(imageDataUrl) {
+	if (typeof imageDataUrl !== 'string') return false;
+	if (!IMAGE_DATA_URL_RE.test(imageDataUrl)) return false;
+	const encoded = imageDataUrl.split(',', 2)[1];
+	if (!encoded) return false;
+	const estimatedBytes = Math.floor((encoded.length * 3) / 4);
+	return estimatedBytes <= MAX_CANVAS_SYNC_BYTES;
+}
+
+function appendChatMessage(room, message) {
+	room.chatMessages.push(message);
+	if (room.chatMessages.length > CHAT_HISTORY_LIMIT) {
+		room.chatMessages.splice(0, room.chatMessages.length - CHAT_HISTORY_LIMIT);
+	}
+}
+
+function clearRoomTimers(room) {
+	clearInterval(room.timerInterval);
+	room.timerInterval = null;
+	if (room.nextRoundTimeout) {
+		clearTimeout(room.nextRoundTimeout);
+		room.nextRoundTimeout = null;
+	}
+}
+
+function createRateLimiter(socket) {
+	const activity = new Map();
+	return (eventName) => {
+		const rule = EVENT_RATE_LIMITS[eventName];
+		if (!rule) return true;
+
+		const now = Date.now();
+		const existing = activity.get(eventName) || [];
+		const recent = existing.filter((ts) => now - ts < rule.windowMs);
+		if (recent.length >= rule.limit) {
+			socket.emit('rateLimited', { event: eventName });
+			return false;
+		}
+		recent.push(now);
+		activity.set(eventName, recent);
+		return true;
+	};
+}
+
 const AVATARS = ['🎨', '🖌️', '✏️', '🖍️', '🎭', '🎪', '🎯', '🎲', '🎮', '🎸'];
+
+const SKIN_COLORS = new Set([
+	'#FFDBB4',
+	'#EDB98A',
+	'#D08B5B',
+	'#AE5D29',
+	'#614335',
+	'#3B2219',
+]);
+const HAIR_COLORS = new Set([
+	'#090806',
+	'#2C222B',
+	'#71635A',
+	'#B7A69E',
+	'#D6C4C2',
+	'#CABFB1',
+	'#B55239',
+	'#8D4A43',
+	'#E0E0E0',
+	'#6B5B95',
+	'#88B04B',
+	'#45B8AC',
+]);
+
+const DEFAULT_AVATAR = {
+	skinColor: '#FFDBB4',
+	eyeStyle: 0,
+	mouthStyle: 0,
+	hairStyle: 1,
+	hairColor: '#090806',
+	accessory: 0,
+};
+
+function sanitizeAvatar(rawAvatar) {
+	if (!rawAvatar || typeof rawAvatar !== 'object') return null;
+
+	const skinColor =
+		typeof rawAvatar.skinColor === 'string'
+			? rawAvatar.skinColor.toUpperCase()
+			: DEFAULT_AVATAR.skinColor;
+	const hairColor =
+		typeof rawAvatar.hairColor === 'string'
+			? rawAvatar.hairColor.toUpperCase()
+			: DEFAULT_AVATAR.hairColor;
+
+	return {
+		skinColor: SKIN_COLORS.has(skinColor)
+			? skinColor
+			: DEFAULT_AVATAR.skinColor,
+		eyeStyle: clamp(
+			Number.isInteger(rawAvatar.eyeStyle) ? rawAvatar.eyeStyle : 0,
+			0,
+			5,
+		),
+		mouthStyle: clamp(
+			Number.isInteger(rawAvatar.mouthStyle) ? rawAvatar.mouthStyle : 0,
+			0,
+			5,
+		),
+		hairStyle: clamp(
+			Number.isInteger(rawAvatar.hairStyle) ? rawAvatar.hairStyle : 1,
+			0,
+			6,
+		),
+		hairColor: HAIR_COLORS.has(hairColor)
+			? hairColor
+			: DEFAULT_AVATAR.hairColor,
+		accessory: clamp(
+			Number.isInteger(rawAvatar.accessory) ? rawAvatar.accessory : 0,
+			0,
+			6,
+		),
+	};
+}
 
 // Load words from app/data/wordPacks.ts
 function loadLocalWords() {
@@ -187,6 +475,7 @@ function createRoom(roomId, isPublic = true) {
 		revealedLetters: 0,
 		revealedIndices: [], // Store which letter indices have been revealed
 		timerInterval: null,
+		nextRoundTimeout: null,
 		canvasData: null,
 		ownerId: null, // First player to join is owner
 		isPublic: isPublic, // Room visibility
@@ -233,17 +522,104 @@ app.prepare().then(() => {
 
 	const io = new Server(httpServer, {
 		cors: {
-			origin: '*',
+			origin: (origin, callback) => {
+				if (isOriginAllowed(origin)) {
+					callback(null, true);
+					return;
+				}
+				callback(new Error('Socket origin not allowed'));
+			},
 			methods: ['GET', 'POST'],
+			credentials: true,
 		},
+		maxHttpBufferSize: SOCKET_MAX_HTTP_BUFFER_SIZE,
 	});
 
 	io.on('connection', (socket) => {
 		console.log('User connected:', socket.id);
+		const allowEvent = createRateLimiter(socket);
+
+		const removePlayerFromRoom = (leaveSuffix = 'left the game') => {
+			const roomId = socket.roomId;
+			if (!roomId) return;
+
+			const room = rooms.get(roomId);
+			if (!room) {
+				socket.roomId = null;
+				socket.playerId = null;
+				return;
+			}
+
+			const playerIndex = room.players.findIndex((p) => p.id === socket.id);
+			if (playerIndex === -1) {
+				socket.roomId = null;
+				socket.playerId = null;
+				return;
+			}
+
+			const [player] = room.players.splice(playerIndex, 1);
+
+			const leaveMessage = {
+				id: Date.now().toString(),
+				playerId: 'system',
+				playerName: 'System',
+				text: `${player.name} ${leaveSuffix}`,
+				isCorrect: false,
+				isSystem: true,
+			};
+			appendChatMessage(room, leaveMessage);
+			io.to(roomId).emit('chatMessage', leaveMessage);
+			io.to(roomId).emit('playersUpdate', room.players);
+
+			// If owner left, assign new owner.
+			if (room.ownerId === socket.id && room.players.length > 0) {
+				room.ownerId = room.players[0].id;
+				io.to(roomId).emit('ownerUpdate', room.ownerId);
+			}
+
+			// If drawer left during drawing, end round.
+			if (player.isDrawing && room.gamePhase === 'drawing' && room.players.length > 0) {
+				endRound(room, io);
+			}
+
+			// If one player remains in active gameplay, end the game.
+			const activeGamePhases = ['choosing', 'drawing', 'roundEnd'];
+			if (
+				room.players.length === 1 &&
+				activeGamePhases.includes(room.gamePhase)
+			) {
+				clearRoomTimers(room);
+				room.gamePhase = 'gameEnd';
+
+				const winner = room.players[0];
+				const winMessage = {
+					id: Date.now().toString(),
+					playerId: 'system',
+					playerName: 'System',
+					text: `ðŸ† ${winner.name} wins! All other players left the game.`,
+					isCorrect: false,
+					isSystem: true,
+				};
+				appendChatMessage(room, winMessage);
+				io.to(roomId).emit('chatMessage', winMessage);
+				io.to(roomId).emit('gameEnd', { players: room.players });
+			}
+
+			if (room.players.length === 0) {
+				clearRoomTimers(room);
+				rooms.delete(roomId);
+			}
+
+			socket.leave(roomId);
+			socket.roomId = null;
+			socket.playerId = null;
+		};
 
 		// Join room
 		// Quick play - find or create a public room
 		socket.on('quickPlay', () => {
+			if (!allowEvent('quickPlay')) return;
+
 			const availableRooms = getAvailablePublicRooms();
 			console.log('Quick Play - Available rooms:', availableRooms);
 			console.log(
@@ -262,8 +638,24 @@ app.prepare().then(() => {
 				roomId = availableRooms[0].id;
 				console.log('Quick Play - Joining existing room:', roomId);
 			} else {
+				if (rooms.size >= MAX_ROOMS) {
+					socket.emit('quickPlayError', {
+						message: 'Server is full right now. Please try again shortly.',
+					});
+					return;
+				}
 				// Create new public room
-				roomId = generateRoomId();
+				let attempts = 0;
+				do {
+					roomId = generateRoomId();
+					attempts++;
+				} while (rooms.has(roomId) && attempts < 8);
+				if (rooms.has(roomId)) {
+					socket.emit('quickPlayError', {
+						message: 'Could not create a room right now. Please retry.',
+					});
+					return;
+				}
 				const room = createRoom(roomId, true);
 				rooms.set(roomId, room);
 				console.log('Quick Play - Created new room:', roomId);
@@ -274,24 +666,47 @@ app.prepare().then(() => {
 		});
 
 		// Join room
-		socket.on('joinRoom', ({ roomId, playerName, isPublic, customAvatar }) => {
-			let room = rooms.get(roomId);
+		socket.on('joinRoom', (payload = {}) => {
+			if (!allowEvent('joinRoom')) return;
+
+			const safeRoomId = normalizeRoomId(payload.roomId);
+			let safePlayerName = sanitizePlayerName(payload.playerName);
+			const safeIsPublic =
+				typeof payload.isPublic === 'boolean' ? payload.isPublic : true;
+			const safeAvatar = sanitizeAvatar(payload.customAvatar);
+
+			if (!safeRoomId) {
+				socket.emit('roomError', {
+					message:
+						'Invalid room code. Use 4-8 letters or numbers (A-Z, 0-9).',
+				});
+				return;
+			}
+
+			let room = rooms.get(safeRoomId);
 
 			if (!room) {
+				if (rooms.size >= MAX_ROOMS) {
+					socket.emit('roomError', {
+						message: 'Server is full right now. Please try again shortly.',
+					});
+					return;
+				}
+
 				// Create room with specified visibility (default public)
-				room = createRoom(roomId, isPublic !== undefined ? isPublic : true);
-				rooms.set(roomId, room);
+				room = createRoom(safeRoomId, safeIsPublic);
+				rooms.set(safeRoomId, room);
 			}
 
 			// Check if this socket is already in the room (prevent duplicates)
 			const playerBySocket = room.players.find((p) => p.id === socket.id);
 			if (playerBySocket) {
 				// Update name if changed
-				if (playerName) {
-					playerBySocket.name = playerName;
+				if (safePlayerName) {
+					playerBySocket.name = safePlayerName;
 					// Update custom avatar if provided
-					if (customAvatar) {
-						playerBySocket.customAvatar = customAvatar;
+					if (safeAvatar) {
+						playerBySocket.customAvatar = safeAvatar;
 					}
 				}
 
@@ -321,87 +736,46 @@ app.prepare().then(() => {
 							? room.wordOptions
 							: [],
 				});
-				io.to(roomId).emit('playersUpdate', room.players);
+				io.to(safeRoomId).emit('playersUpdate', room.players);
 				return;
 			}
 
-			// Check if player already exists (reconnection by name)
-			const existingPlayer = room.players.find((p) => p.name === playerName);
-			if (existingPlayer) {
-				// Check if the existing player's socket is still active
-				const existingSocket = io.sockets.sockets.get(existingPlayer.id);
-				const isConnected = existingSocket && existingSocket.connected;
-
-				if (!isConnected) {
-					// Reconnection: Player exists but is disconnected
-					console.log(
-						`Reconnecting player ${playerName} to room ${roomId} (oldId: ${existingPlayer.id})`,
-					);
-					existingPlayer.id = socket.id;
-					socket.join(roomId);
-					socket.roomId = roomId;
-					socket.playerId = socket.id;
-
-					// Send current room state (only serializable fields)
-					socket.emit('roomState', {
-						id: room.id,
-						players: room.players,
-						currentDrawerIndex: room.currentDrawerIndex,
-						wordHint: room.wordHint,
-						roundTime: room.roundTime,
-						maxDrawTime: room.maxDrawTime,
-						currentRound: room.currentRound,
-						currentTurn: room.currentTurn,
-						totalRounds: room.totalRounds,
-						gamePhase: room.gamePhase,
-						chatMessages: room.chatMessages,
-						ownerId: room.ownerId,
-						isPublic: room.isPublic,
-						currentWord:
-							room.gamePhase === 'drawing' &&
-							room.players[room.currentDrawerIndex]?.id === socket.id
-								? room.currentWord
-								: '',
-						wordOptions:
-							room.gamePhase === 'choosing' &&
-							room.players[room.currentDrawerIndex]?.id === socket.id
-								? room.wordOptions
-								: [],
-					});
-					io.to(roomId).emit('playersUpdate', room.players);
-					return;
-				} else {
-					// Name collision: Player exists and is connected
-					console.log(
-						`Name collision for ${playerName} in room ${roomId}. Generating unique name.`,
-					);
-					// Generate a unique name
-					let count = 2;
-					let newName = `${playerName} ${count}`;
-					while (room.players.some((p) => p.name === newName)) {
-						count++;
-						newName = `${playerName} ${count}`;
-					}
-					playerName = newName; // Use the new unique name
+			// Name collision: generate a unique visible alias.
+			if (room.players.some((p) => p.name === safePlayerName)) {
+				console.log(
+					`Name collision for ${safePlayerName} in room ${safeRoomId}. Generating unique name.`,
+				);
+				let count = 2;
+				let newName = `${safePlayerName} ${count}`;
+				while (room.players.some((p) => p.name === newName)) {
+					count++;
+					newName = `${safePlayerName} ${count}`;
 				}
+				safePlayerName = newName;
+			}
+
+			// New joiners cannot exceed max room capacity.
+			if (room.players.length >= room.maxPlayers) {
+				socket.emit('roomError', { message: 'Room is full.' });
+				return;
 			}
 
 			// Create new player
 			const isGameInProgress = room.gamePhase !== 'lobby';
 			const player = {
 				id: socket.id,
-				name: playerName || 'Player',
+				name: safePlayerName || 'Player',
 				score: 0,
 				avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)],
-				customAvatar: customAvatar || null, // Store custom avatar if provided
+				customAvatar: safeAvatar || null, // Store custom avatar if provided
 				// Late joiners can participate immediately in the current round
 				hasGuessed: false,
 				isDrawing: false,
 			};
 
 			room.players.push(player);
-			socket.join(roomId);
-			socket.roomId = roomId;
+			socket.join(safeRoomId);
+			socket.roomId = safeRoomId;
 			socket.playerId = socket.id;
 
 			// First player is the owner
@@ -455,8 +829,8 @@ app.prepare().then(() => {
 			}
 
 			// Notify all players about the new player
-			io.to(roomId).emit('playerJoined', player);
-			io.to(roomId).emit('playersUpdate', room.players);
+			io.to(safeRoomId).emit('playerJoined', player);
+			io.to(safeRoomId).emit('playersUpdate', room.players);
 
 			// System message
 			const joinMessage = {
@@ -472,12 +846,15 @@ app.prepare().then(() => {
 				isCorrect: false,
 				isSystem: true,
 			};
-			room.chatMessages.push(joinMessage);
-			io.to(roomId).emit('chatMessage', joinMessage);
+			appendChatMessage(room, joinMessage);
+			io.to(safeRoomId).emit('chatMessage', joinMessage);
 		});
 
 		// Update room settings (owner only)
-		socket.on('updateSettings', ({ totalRounds, drawTime }) => {
+		socket.on('updateSettings', (payload = {}) => {
+			if (!allowEvent('updateSettings')) return;
+			const { totalRounds, drawTime } = payload;
+
 			const room = rooms.get(socket.roomId);
 			if (!room) return;
 
@@ -487,11 +864,14 @@ app.prepare().then(() => {
 			// Only allow changes in lobby
 			if (room.gamePhase !== 'lobby') return;
 
-			if (totalRounds >= 1 && totalRounds <= 10) {
-				room.totalRounds = totalRounds;
+			const safeTotalRounds = parsePositiveInt(totalRounds, room.totalRounds, 1, 10);
+			const safeDrawTime = parsePositiveInt(drawTime, room.maxDrawTime, 30, 180);
+
+			if (safeTotalRounds >= 1 && safeTotalRounds <= 10) {
+				room.totalRounds = safeTotalRounds;
 			}
-			if (drawTime >= 30 && drawTime <= 180) {
-				room.maxDrawTime = drawTime;
+			if (safeDrawTime >= 30 && safeDrawTime <= 180) {
+				room.maxDrawTime = safeDrawTime;
 			}
 
 			// Broadcast updated settings to all players
@@ -513,7 +893,7 @@ app.prepare().then(() => {
 			room.currentRound = 1;
 			room.currentTurn = 1;
 			room.currentDrawerIndex = 0;
-			room.wordOptions = getRandomWords(3);
+			room.wordOptions = getRandomWords(room, 3);
 			room.roundTime = 15;
 			room.players.forEach((p) => {
 				p.hasGuessed = false;
@@ -522,6 +902,7 @@ app.prepare().then(() => {
 			});
 			room.players[0].isDrawing = true;
 			room.chatMessages = []; // Clear chat on new game
+			clearRoomTimers(room);
 
 			// Send word options only to drawer
 			const drawer = room.players[0];
@@ -552,19 +933,23 @@ app.prepare().then(() => {
 			const drawer = room.players[room.currentDrawerIndex];
 			if (!drawer || drawer.id !== socket.id) return;
 
-			room.currentWord = word;
+			const safeWord = sanitizeText(word, MAX_WORD_LENGTH);
+			if (!safeWord) return;
+			if (!room.wordOptions.includes(safeWord)) return;
+
+			room.currentWord = safeWord;
 			room.revealedLetters = 0;
 			room.revealedIndices = [];
-			const hintResult = getWordHint(word, 0, []);
+			const hintResult = getWordHint(safeWord, 0, []);
 			room.wordHint = hintResult.hint;
 			room.gamePhase = 'drawing';
 			room.roundTime = room.maxDrawTime; // Use room setting
 			room.canvasData = null;
 
-			clearInterval(room.timerInterval);
+			clearRoomTimers(room);
 
 			// Send word to drawer only
-			io.to(drawer.id).emit('currentWord', word);
+			io.to(drawer.id).emit('currentWord', safeWord);
 
 			// Send hint to everyone
 			io.to(socket.roomId).emit('gamePhaseChange', {
@@ -578,6 +963,8 @@ app.prepare().then(() => {
 
 		// Chat message / guess
 		socket.on('sendMessage', (text) => {
+			if (!allowEvent('sendMessage')) return;
+
 			const room = rooms.get(socket.roomId);
 			if (!room || room.gamePhase !== 'drawing') return;
 
@@ -590,19 +977,22 @@ app.prepare().then(() => {
 			// Already guessed
 			if (player.hasGuessed) return;
 
-			const normalizedGuess = text.toLowerCase().trim();
+			const safeText = sanitizeText(text, MAX_CHAT_MESSAGE_LENGTH);
+			if (!safeText) return;
+
+			const normalizedGuess = safeText.toLowerCase().trim();
 			const isCorrect = normalizedGuess === room.currentWord.toLowerCase();
 
 			const message = {
 				id: Date.now().toString(),
 				playerId: player.id,
 				playerName: player.name,
-				text: isCorrect ? text.replace(/./g, '*') : text,
+				text: isCorrect ? safeText.replace(/./g, '*') : safeText,
 				isCorrect,
 				isSystem: false,
 			};
 
-			room.chatMessages.push(message);
+			appendChatMessage(room, message);
 			io.to(socket.roomId).emit('chatMessage', message);
 
 			if (isCorrect) {
@@ -624,7 +1014,7 @@ app.prepare().then(() => {
 					isCorrect: false,
 					isSystem: true,
 				};
-				room.chatMessages.push(systemMessage);
+				appendChatMessage(room, systemMessage);
 				io.to(socket.roomId).emit('chatMessage', systemMessage);
 				io.to(socket.roomId).emit('playersUpdate', room.players);
 
@@ -638,11 +1028,14 @@ app.prepare().then(() => {
 
 		// Canvas drawing
 		socket.on('draw', (drawData) => {
+			if (!allowEvent('draw')) return;
+
 			const room = rooms.get(socket.roomId);
 			if (!room) return;
 
 			const drawer = room.players[room.currentDrawerIndex];
 			if (!drawer || drawer.id !== socket.id) return;
+			if (!isValidDrawPayload(drawData)) return;
 
 			// Broadcast to all except sender
 			socket.to(socket.roomId).emit('draw', drawData);
@@ -650,6 +1043,8 @@ app.prepare().then(() => {
 
 		// Canvas clear
 		socket.on('clearCanvas', () => {
+			if (!allowEvent('clearCanvas')) return;
+
 			const room = rooms.get(socket.roomId);
 			if (!room) return;
 
@@ -661,11 +1056,14 @@ app.prepare().then(() => {
 
 		// Canvas sync (for undo/redo - sends full canvas state)
 		socket.on('canvasSync', (imageDataUrl) => {
+			if (!allowEvent('canvasSync')) return;
+
 			const room = rooms.get(socket.roomId);
 			if (!room) return;
 
 			const drawer = room.players[room.currentDrawerIndex];
 			if (!drawer || drawer.id !== socket.id) return;
+			if (!isValidCanvasDataUrl(imageDataUrl)) return;
 
 			// Broadcast canvas state to all other players
 			socket.to(socket.roomId).emit('canvasSync', imageDataUrl);
@@ -681,6 +1079,7 @@ app.prepare().then(() => {
 
 			// Drawer can't react to their own drawing
 			if (player.isDrawing) return;
+			if (reaction !== 'like' && reaction !== 'dislike') return;
 
 			const emoji = reaction === 'like' ? '👍' : '👎';
 			const action = reaction === 'like' ? 'liked' : 'disliked';
@@ -693,32 +1092,39 @@ app.prepare().then(() => {
 				isCorrect: false,
 				isSystem: true,
 			};
-			room.chatMessages.push(reactionMessage);
+			appendChatMessage(room, reactionMessage);
 			io.to(socket.roomId).emit('chatMessage', reactionMessage);
 		});
 
 		// Lobby chat - messages during lobby phase
 		socket.on('lobbyMessage', (text) => {
+			if (!allowEvent('lobbyMessage')) return;
+
 			const room = rooms.get(socket.roomId);
 			if (!room || room.gamePhase !== 'lobby') return;
 
 			const player = room.players.find((p) => p.id === socket.id);
 			if (!player) return;
 
+			const safeText = sanitizeText(text, MAX_CHAT_MESSAGE_LENGTH);
+			if (!safeText) return;
+
 			const message = {
 				id: Date.now().toString(),
 				playerId: player.id,
 				playerName: player.name,
-				text: text,
+				text: safeText,
 				isCorrect: false,
 				isSystem: false,
 			};
-			room.chatMessages.push(message);
+			appendChatMessage(room, message);
 			io.to(socket.roomId).emit('chatMessage', message);
 		});
 
 		// Emote reactions during drawing
 		socket.on('sendEmote', (emote) => {
+			if (!allowEvent('sendEmote')) return;
+
 			const room = rooms.get(socket.roomId);
 			if (!room || room.gamePhase !== 'drawing') return;
 
@@ -728,15 +1134,20 @@ app.prepare().then(() => {
 			// Drawer can't send emotes
 			if (player.isDrawing) return;
 
+			const safeEmote = sanitizeText(emote, MAX_EMOTE_LENGTH);
+			if (!safeEmote) return;
+
 			// Broadcast emote to all players
 			io.to(socket.roomId).emit('emote', {
-				emote,
+				emote: safeEmote,
 				playerName: player.name,
 			});
 		});
 
 		// Typing indicator
 		socket.on('typing', () => {
+			if (!allowEvent('typing')) return;
+
 			const room = rooms.get(socket.roomId);
 			if (!room) return;
 
@@ -781,7 +1192,7 @@ app.prepare().then(() => {
 				p.hasGuessed = false;
 				p.isDrawing = false;
 			});
-			clearInterval(room.timerInterval);
+			clearRoomTimers(room);
 
 			io.to(socket.roomId).emit('gameReset', {
 				totalRounds: room.totalRounds,
@@ -795,6 +1206,7 @@ app.prepare().then(() => {
 		socket.on('kickPlayer', (targetPlayerId) => {
 			const room = rooms.get(socket.roomId);
 			if (!room) return;
+			if (typeof targetPlayerId !== 'string') return;
 
 			// Only owner can kick
 			if (room.ownerId !== socket.id) return;
@@ -823,6 +1235,7 @@ app.prepare().then(() => {
 			if (kickedSocket) {
 				kickedSocket.leave(socket.roomId);
 				kickedSocket.roomId = null;
+				kickedSocket.playerId = null;
 			}
 
 			// Adjust currentDrawerIndex if needed
@@ -844,7 +1257,7 @@ app.prepare().then(() => {
 				isCorrect: false,
 				isSystem: true,
 			};
-			room.chatMessages.push(kickMessage);
+			appendChatMessage(room, kickMessage);
 			io.to(socket.roomId).emit('chatMessage', kickMessage);
 			io.to(socket.roomId).emit('playersUpdate', room.players);
 
@@ -863,10 +1276,7 @@ app.prepare().then(() => {
 				room.players.length === 1 &&
 				activeGamePhases.includes(room.gamePhase)
 			) {
-				clearInterval(room.timerInterval);
-				if (room.nextRoundTimeout) {
-					clearTimeout(room.nextRoundTimeout);
-				}
+				clearRoomTimers(room);
 				room.gamePhase = 'gameEnd';
 
 				const winner = room.players[0];
@@ -878,95 +1288,42 @@ app.prepare().then(() => {
 					isCorrect: false,
 					isSystem: true,
 				};
-				room.chatMessages.push(winMessage);
+				appendChatMessage(room, winMessage);
 				io.to(socket.roomId).emit('chatMessage', winMessage);
 				io.to(socket.roomId).emit('gameEnd', { players: room.players });
 			}
 
 			// Clean up empty rooms
 			if (room.players.length === 0) {
-				clearInterval(room.timerInterval);
+				clearRoomTimers(room);
 				rooms.delete(socket.roomId);
 			}
+		});
+
+		// Leave room
+		socket.on('leaveRoom', () => {
+			removePlayerFromRoom('left the room');
 		});
 
 		// Disconnect
 		socket.on('disconnect', () => {
 			console.log('User disconnected:', socket.id);
-
-			const room = rooms.get(socket.roomId);
-			if (!room) return;
-
-			const playerIndex = room.players.findIndex((p) => p.id === socket.id);
-			if (playerIndex === -1) return;
-
-			const player = room.players[playerIndex];
-			room.players.splice(playerIndex, 1);
-
-			const leaveMessage = {
-				id: Date.now().toString(),
-				playerId: 'system',
-				playerName: 'System',
-				text: `${player.name} left the game`,
-				isCorrect: false,
-				isSystem: true,
-			};
-			room.chatMessages.push(leaveMessage);
-			io.to(socket.roomId).emit('chatMessage', leaveMessage);
-			io.to(socket.roomId).emit('playersUpdate', room.players);
-
-			// If owner left, assign new owner
-			if (room.ownerId === socket.id && room.players.length > 0) {
-				room.ownerId = room.players[0].id;
-				io.to(socket.roomId).emit('ownerUpdate', room.ownerId);
-			}
-
-			// If drawer left during drawing, end round
-			if (player.isDrawing && room.gamePhase === 'drawing') {
-				endRound(room, io);
-			}
-
-			// If only one player remains during an active game, they win!
-			const activeGamePhases = ['choosing', 'drawing', 'roundEnd'];
-			if (
-				room.players.length === 1 &&
-				activeGamePhases.includes(room.gamePhase)
-			) {
-				clearInterval(room.timerInterval);
-				if (room.nextRoundTimeout) {
-					clearTimeout(room.nextRoundTimeout);
-				}
-				room.gamePhase = 'gameEnd';
-
-				const winner = room.players[0];
-				const winMessage = {
-					id: Date.now().toString(),
-					playerId: 'system',
-					playerName: 'System',
-					text: `🏆 ${winner.name} wins! All other players left the game.`,
-					isCorrect: false,
-					isSystem: true,
-				};
-				room.chatMessages.push(winMessage);
-				io.to(socket.roomId).emit('chatMessage', winMessage);
-				io.to(socket.roomId).emit('gameEnd', { players: room.players });
-			}
-
-			// Clean up empty rooms
-			if (room.players.length === 0) {
-				clearInterval(room.timerInterval);
-				if (room.nextRoundTimeout) {
-					clearTimeout(room.nextRoundTimeout);
-				}
-				rooms.delete(socket.roomId);
-			}
+			removePlayerFromRoom('left the game');
 		});
 	});
 
 	function startRoundTimer(room, io) {
-		clearInterval(room.timerInterval);
+		clearRoomTimers(room);
 
 		room.timerInterval = setInterval(() => {
+			if (!rooms.has(room.id) || room.players.length === 0) {
+				clearRoomTimers(room);
+				if (rooms.has(room.id) && room.players.length === 0) {
+					rooms.delete(room.id);
+				}
+				return;
+			}
+
 			room.roundTime--;
 
 			io.to(room.id).emit('timerUpdate', room.roundTime);
@@ -978,12 +1335,16 @@ app.prepare().then(() => {
 				room.roundTime < room.maxDrawTime &&
 				room.roundTime > 0
 			) {
-			room.revealedLetters++;
+				room.revealedLetters++;
 				// Ensure revealedIndices is an array (defensive for old rooms)
 				if (!Array.isArray(room.revealedIndices)) {
 					room.revealedIndices = [];
 				}
-				const hintResult = getWordHint(room.currentWord, room.revealedLetters, room.revealedIndices);
+				const hintResult = getWordHint(
+					room.currentWord,
+					room.revealedLetters,
+					room.revealedIndices,
+				);
 				room.wordHint = hintResult.hint;
 				room.revealedIndices = hintResult.revealedIndices;
 				io.to(room.id).emit('wordHintUpdate', room.wordHint);
@@ -991,11 +1352,18 @@ app.prepare().then(() => {
 
 			if (room.roundTime <= 0) {
 				if (room.gamePhase === 'choosing') {
+					if (!Array.isArray(room.wordOptions) || room.wordOptions.length === 0) {
+						room.wordOptions = getRandomWords(room, 3);
+					}
 					// Auto-select random word
 					const word =
 						room.wordOptions[
 							Math.floor(Math.random() * room.wordOptions.length)
 						];
+					if (!word) {
+						endRound(room, io);
+						return;
+					}
 					room.currentWord = word;
 					room.revealedLetters = 0;
 					room.revealedIndices = [];
@@ -1021,7 +1389,8 @@ app.prepare().then(() => {
 	}
 
 	function endRound(room, io) {
-		clearInterval(room.timerInterval);
+		if (!room || room.players.length === 0) return;
+		clearRoomTimers(room);
 		room.gamePhase = 'roundEnd';
 
 		io.to(room.id).emit('roundEnd', {
@@ -1036,6 +1405,24 @@ app.prepare().then(() => {
 	}
 
 	function startNextTurn(room, io) {
+		if (!room || !Array.isArray(room.players) || room.players.length === 0) {
+			if (room) {
+				clearRoomTimers(room);
+				rooms.delete(room.id);
+			}
+			return;
+		}
+
+		// One-player game cannot continue with turn rotation.
+		if (room.players.length === 1) {
+			clearRoomTimers(room);
+			room.gamePhase = 'gameEnd';
+			io.to(room.id).emit('gameEnd', { players: room.players });
+			return;
+		}
+
+		clearRoomTimers(room);
+
 		// Move to next drawer
 		room.currentDrawerIndex =
 			(room.currentDrawerIndex + 1) % room.players.length;
@@ -1059,7 +1446,7 @@ app.prepare().then(() => {
 
 		// Set up next turn
 		room.gamePhase = 'choosing';
-		room.wordOptions = getRandomWords(3);
+		room.wordOptions = getRandomWords(room, 3);
 		room.roundTime = 15;
 		room.currentWord = '';
 		room.wordHint = '';
@@ -1092,3 +1479,4 @@ app.prepare().then(() => {
 		console.log(`> Ready on http://${hostname}:${port}`);
 	});
 });
+

@@ -2,11 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { Github, HelpCircle, Home, Menu, X } from 'lucide-react';
-import Settings from './Settings';
 
 export default function Navbar() {
 	const [isOpen, setIsOpen] = useState(false);
@@ -43,7 +41,7 @@ export default function Navbar() {
 				className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
 					isGamePage
 						? 'bg-transparent pointer-events-none hidden'
-						: 'glass border-b border-border/50'
+						: 'bg-transparent pt-4'
 				}`}>
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex items-center justify-between h-14 sm:h-16">
@@ -53,13 +51,20 @@ export default function Navbar() {
 							className={`flex items-center gap-2 sm:gap-2.5 pointer-events-auto ${
 								isGamePage ? 'opacity-0 pointer-events-none' : 'opacity-100'
 							}`}>
-						<Image
-							src="/images/logo.png"
-							alt="doodl"
-							width={100}
-							height={100}
-							className="drop-shadow-lg"
-						/>
+							<span
+								className="font-bold text-white leading-none select-none"
+								style={{
+									fontSize: '2.2rem',
+									letterSpacing: '0.02em',
+								}}>
+								Doodl
+								<span
+									className="inline-block ml-1"
+									style={{ fontSize: '0.8em', verticalAlign: 'middle', transform: 'rotate(-10deg) translateY(-2px)', display: 'inline-block' }}
+									aria-hidden="true">
+									✏️
+								</span>
+							</span>
 						</Link>
 
 						{/* Desktop Nav */}
@@ -72,24 +77,22 @@ export default function Navbar() {
 									key={item.name}
 									href={item.href}
 									target={item.external ? '_blank' : undefined}
-									className="flex items-center gap-2 text-muted-foreground hover:text-foreground font-medium transition-colors group text-sm">
-									<item.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+									className={`flex items-center gap-2 font-medium transition-colors group text-[17px] ${
+										item.name === 'Home'
+											? 'text-[#4fc3f7] border-b-[2.5px] border-[#4fc3f7] pb-1 rounded-sm'
+											: 'text-white/80 hover:text-white pb-1'
+									}`}>
+									<item.icon className="w-5 h-5 group-hover:scale-110 transition-transform" />
 									{item.name}
 								</Link>
 							))}
-							
-							{/* Settings Button */}
-							<div className="pl-2 border-l border-border/50">
-								<Settings />
-							</div>
 						</div>
 
 						{/* Mobile Menu Button */}
 						<div
-							className={`md:hidden flex items-center gap-1.5 sm:gap-2 pointer-events-auto ${
+							className={`md:hidden flex items-center pointer-events-auto ${
 								isGamePage ? 'opacity-0 pointer-events-none' : 'opacity-100'
 							}`}>
-							<Settings />
 							<button
 								onClick={() => setIsOpen(!isOpen)}
 								aria-label={isOpen ? 'Close menu' : 'Open menu'}
