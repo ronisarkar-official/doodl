@@ -299,18 +299,17 @@ function sanitizeAvatar(rawAvatar) {
 	if (!rawAvatar || typeof rawAvatar !== 'object') return null;
 
 	const skinColor =
-		typeof rawAvatar.skinColor === 'string'
-			? rawAvatar.skinColor.toUpperCase()
-			: DEFAULT_AVATAR.skinColor;
+		typeof rawAvatar.skinColor === 'string' ?
+			rawAvatar.skinColor.toUpperCase()
+		:	DEFAULT_AVATAR.skinColor;
 	const hairColor =
-		typeof rawAvatar.hairColor === 'string'
-			? rawAvatar.hairColor.toUpperCase()
-			: DEFAULT_AVATAR.hairColor;
+		typeof rawAvatar.hairColor === 'string' ?
+			rawAvatar.hairColor.toUpperCase()
+		:	DEFAULT_AVATAR.hairColor;
 
 	return {
-		skinColor: SKIN_COLORS.has(skinColor)
-			? skinColor
-			: DEFAULT_AVATAR.skinColor,
+		skinColor:
+			SKIN_COLORS.has(skinColor) ? skinColor : DEFAULT_AVATAR.skinColor,
 		eyeStyle: clamp(
 			Number.isInteger(rawAvatar.eyeStyle) ? rawAvatar.eyeStyle : 0,
 			0,
@@ -326,9 +325,8 @@ function sanitizeAvatar(rawAvatar) {
 			0,
 			6,
 		),
-		hairColor: HAIR_COLORS.has(hairColor)
-			? hairColor
-			: DEFAULT_AVATAR.hairColor,
+		hairColor:
+			HAIR_COLORS.has(hairColor) ? hairColor : DEFAULT_AVATAR.hairColor,
 		accessory: clamp(
 			Number.isInteger(rawAvatar.accessory) ? rawAvatar.accessory : 0,
 			0,
@@ -395,9 +393,9 @@ function getRandomWords(room, count = 3) {
 	// Get words from selected packs (or all if none selected)
 	const availablePacks = Object.keys(WORD_PACKS);
 	const packIds =
-		room.wordPacks && room.wordPacks.length > 0
-			? room.wordPacks
-			: availablePacks;
+		room.wordPacks && room.wordPacks.length > 0 ?
+			room.wordPacks
+		:	availablePacks;
 	let allWords = packIds.flatMap((id) => WORD_PACKS[id] || []);
 
 	// Add custom words if any
@@ -621,7 +619,11 @@ app.prepare().then(() => {
 			}
 
 			// If drawer left during drawing, end round.
-			if (player.isDrawing && room.gamePhase === 'drawing' && room.players.length > 0) {
+			if (
+				player.isDrawing &&
+				room.gamePhase === 'drawing' &&
+				room.players.length > 0
+			) {
 				endRound(room, io);
 			}
 
@@ -720,8 +722,7 @@ app.prepare().then(() => {
 
 			if (!safeRoomId) {
 				socket.emit('roomError', {
-					message:
-						'Invalid room code. Use 4-8 letters or numbers (A-Z, 0-9).',
+					message: 'Invalid room code. Use 4-8 letters or numbers (A-Z, 0-9).',
 				});
 				return;
 			}
@@ -769,15 +770,19 @@ app.prepare().then(() => {
 					ownerId: room.ownerId,
 					isPublic: room.isPublic,
 					currentWord:
-						room.gamePhase === 'drawing' &&
-						room.players[room.currentDrawerIndex]?.id === socket.id
-							? room.currentWord
-							: '',
+						(
+							room.gamePhase === 'drawing' &&
+							room.players[room.currentDrawerIndex]?.id === socket.id
+						) ?
+							room.currentWord
+						:	'',
 					wordOptions:
-						room.gamePhase === 'choosing' &&
-						room.players[room.currentDrawerIndex]?.id === socket.id
-							? room.wordOptions
-							: [],
+						(
+							room.gamePhase === 'choosing' &&
+							room.players[room.currentDrawerIndex]?.id === socket.id
+						) ?
+							room.wordOptions
+						:	[],
 				});
 				io.to(safeRoomId).emit('playersUpdate', room.players);
 				return;
@@ -842,15 +847,19 @@ app.prepare().then(() => {
 				ownerId: room.ownerId,
 				isPublic: room.isPublic,
 				currentWord:
-					room.gamePhase === 'drawing' &&
-					room.players[room.currentDrawerIndex]?.id === socket.id
-						? room.currentWord
-						: '',
+					(
+						room.gamePhase === 'drawing' &&
+						room.players[room.currentDrawerIndex]?.id === socket.id
+					) ?
+						room.currentWord
+					:	'',
 				wordOptions:
-					room.gamePhase === 'choosing' &&
-					room.players[room.currentDrawerIndex]?.id === socket.id
-						? room.wordOptions
-						: [],
+					(
+						room.gamePhase === 'choosing' &&
+						room.players[room.currentDrawerIndex]?.id === socket.id
+					) ?
+						room.wordOptions
+					:	[],
 			});
 
 			// If game is in drawing phase, send the word hint and timer to the new player
@@ -881,11 +890,10 @@ app.prepare().then(() => {
 				playerId: 'system',
 				playerName: 'System',
 				text:
-					isGameInProgress && room.gamePhase === 'drawing'
-						? `${player.name} joined! Start guessing!`
-						: isGameInProgress
-						? `${player.name} joined the game!`
-						: `${player.name} joined the game!`,
+					isGameInProgress && room.gamePhase === 'drawing' ?
+						`${player.name} joined! Start guessing!`
+					: isGameInProgress ? `${player.name} joined the game!`
+					: `${player.name} joined the game!`,
 				isCorrect: false,
 				isSystem: true,
 			};
@@ -907,8 +915,18 @@ app.prepare().then(() => {
 			// Only allow changes in lobby
 			if (room.gamePhase !== 'lobby') return;
 
-			const safeTotalRounds = parsePositiveInt(totalRounds, room.totalRounds, 1, 10);
-			const safeDrawTime = parsePositiveInt(drawTime, room.maxDrawTime, 30, 180);
+			const safeTotalRounds = parsePositiveInt(
+				totalRounds,
+				room.totalRounds,
+				1,
+				10,
+			);
+			const safeDrawTime = parsePositiveInt(
+				drawTime,
+				room.maxDrawTime,
+				30,
+				180,
+			);
 
 			if (safeTotalRounds >= 1 && safeTotalRounds <= 10) {
 				room.totalRounds = safeTotalRounds;
@@ -1395,7 +1413,10 @@ app.prepare().then(() => {
 
 			if (room.roundTime <= 0) {
 				if (room.gamePhase === 'choosing') {
-					if (!Array.isArray(room.wordOptions) || room.wordOptions.length === 0) {
+					if (
+						!Array.isArray(room.wordOptions) ||
+						room.wordOptions.length === 0
+					) {
 						room.wordOptions = getRandomWords(room, 3);
 					}
 					// Auto-select random word
@@ -1522,4 +1543,3 @@ app.prepare().then(() => {
 		console.log(`> Ready on http://${hostname}:${port}`);
 	});
 });
-

@@ -148,7 +148,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 		});
 
 		socket.on('connect_timeout', () => {
-			console.error('Socket connection timed out while trying to connect to server');
+			console.error(
+				'Socket connection timed out while trying to connect to server',
+			);
 		});
 
 		socket.on('error', (err) => {
@@ -333,18 +335,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 			}
 
 			// Handle shape drawing (rectangle, circle, line)
-			if (drawData.shape && drawData.prevX !== undefined && drawData.prevY !== undefined) {
+			if (
+				drawData.shape &&
+				drawData.prevX !== undefined &&
+				drawData.prevY !== undefined
+			) {
 				const startX = drawData.prevX;
 				const startY = drawData.prevY;
 				const endX = drawData.x;
 				const endY = drawData.y;
-				
+
 				ctx.beginPath();
 				ctx.strokeStyle = drawData.color;
 				ctx.lineWidth = drawData.brushSize;
 				ctx.lineCap = 'round';
 				ctx.lineJoin = 'round';
-				
+
 				if (drawData.shape === 'rectangle') {
 					const width = endX - startX;
 					const height = endY - startY;
@@ -387,7 +393,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 			const canvas = canvasRef.current;
 			const ctx = canvas?.getContext('2d');
 			if (!canvas || !ctx) return;
-			
+
 			const img = new Image();
 			img.onload = () => {
 				ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -629,8 +635,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	// New feature: Emote reactions
-	const [emoteReactions, setEmoteReactions] = useState<{ id: string; emote: string; playerName: string }[]>([]);
-	
+	const [emoteReactions, setEmoteReactions] = useState<
+		{ id: string; emote: string; playerName: string }[]
+	>([]);
+
 	const sendEmote = useCallback((emote: string) => {
 		const socket = socketRef.current;
 		if (!socket) return;
@@ -640,7 +648,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 	// New feature: Typing indicator
 	const [typingPlayers, setTypingPlayers] = useState<string[]>([]);
 	const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-	
+
 	const sendTypingIndicator = useCallback(() => {
 		const socket = socketRef.current;
 		if (!socket) return;
@@ -655,23 +663,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 		// Emote event
 		const handleEmote = (data: { emote: string; playerName: string }) => {
 			const id = `${Date.now()}-${Math.random()}`;
-			setEmoteReactions(prev => [...prev, { id, ...data }]);
+			setEmoteReactions((prev) => [...prev, { id, ...data }]);
 			// Remove after animation (matches the 2-3s animation duration in EmoteReactions)
 			setTimeout(() => {
-				setEmoteReactions(prev => prev.filter(e => e.id !== id));
+				setEmoteReactions((prev) => prev.filter((e) => e.id !== id));
 			}, 3500);
 		};
 
 		// Typing event
 		const handleTyping = (data: { playerName: string }) => {
-			setTypingPlayers(prev => {
+			setTypingPlayers((prev) => {
 				if (prev.includes(data.playerName)) return prev;
 				return [...prev, data.playerName];
 			});
 			// Clear typing indicator after 3 seconds
 			if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 			typingTimeoutRef.current = setTimeout(() => {
-				setTypingPlayers(prev => prev.filter(p => p !== data.playerName));
+				setTypingPlayers((prev) => prev.filter((p) => p !== data.playerName));
 			}, 3000);
 		};
 
