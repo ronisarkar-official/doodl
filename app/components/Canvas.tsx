@@ -477,7 +477,16 @@ export default function Canvas() {
 				const canvas = canvasRef.current;
 				const ctx = canvas?.getContext('2d');
 				if (canvas && ctx) {
-					drawShape(ctx, shapeStart.x, shapeStart.y, shapePreview.x, shapePreview.y, tool, color, brushSize);
+					drawShape(
+						ctx,
+						shapeStart.x,
+						shapeStart.y,
+						shapePreview.x,
+						shapePreview.y,
+						tool,
+						color,
+						brushSize,
+					);
 				}
 			}
 
