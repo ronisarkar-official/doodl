@@ -143,6 +143,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 			setState((prev) => ({ ...prev, socket, playerId: socket.id || '' }));
 		});
 
+		socket.on('connect_error', (err) => {
+			console.error('Socket connect_error:', err);
+		});
+
+		socket.on('connect_timeout', () => {
+			console.error('Socket connection timed out while trying to connect to server');
+		});
+
+		socket.on('error', (err) => {
+			console.error('Socket error:', err);
+		});
+
 		// Room state on join
 		socket.on('roomState', (roomState) => {
 			console.log(

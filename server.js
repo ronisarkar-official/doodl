@@ -73,10 +73,44 @@ function normalizeOrigin(value) {
 	}
 }
 
+function getHeaderFirstValue(value) {
+	if (Array.isArray(value)) {
+		value = value[0];
+	}
+	if (typeof value !== 'string') return '';
+	return value.split(',')[0]?.trim() || '';
+}
+
+function getRequestOrigin(req) {
+	const host =
+		getHeaderFirstValue(req?.headers?.['x-forwarded-host']) ||
+		getHeaderFirstValue(req?.headers?.host);
+	if (!host) return null;
+
+	const protocol =
+		getHeaderFirstValue(req?.headers?.['x-forwarded-proto']) ||
+		(req?.socket?.encrypted ? 'https' : 'http');
+
+	return normalizeOrigin(`${protocol}://${host}`);
+}
+
 const configuredAllowedOrigins = new Set(
 	(process.env.ALLOWED_ORIGINS || '')
 		.split(',')
 		.map((origin) => normalizeOrigin(origin.trim()))
+		.filter(Boolean),
+);
+
+const inferredDeploymentOrigins = new Set(
+	[
+		process.env.RENDER_EXTERNAL_URL,
+		process.env.PUBLIC_URL,
+		process.env.URL,
+		process.env.NEXT_PUBLIC_APP_URL,
+		process.env.APP_URL,
+		process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+	]
+		.map((origin) => normalizeOrigin(origin))
 		.filter(Boolean),
 );
 
@@ -90,12 +124,13 @@ const defaultAllowedOrigins = new Set(
 		`https://localhost:${port}`,
 		`http://127.0.0.1:${port}`,
 		`https://127.0.0.1:${port}`,
+		...inferredDeploymentOrigins,
 	]
 		.map(normalizeOrigin)
 		.filter(Boolean),
 );
 
-function isOriginAllowed(origin) {
+function isOriginAllowed(origin, requestOrigin = null) {
 	// Non-browser or same-origin clients may not send an Origin header.
 	if (!origin) return true;
 	const normalizedOrigin = normalizeOrigin(origin);
@@ -103,7 +138,8 @@ function isOriginAllowed(origin) {
 	if (configuredAllowedOrigins.size > 0) {
 		return configuredAllowedOrigins.has(normalizedOrigin);
 	}
-	return defaultAllowedOrigins.has(normalizedOrigin);
+	if (defaultAllowedOrigins.has(normalizedOrigin)) return true;
+	return requestOrigin ? normalizedOrigin === requestOrigin : false;
 }
 
 function sanitizeText(value, maxLength) {
@@ -522,15 +558,22 @@ app.prepare().then(() => {
 
 	const io = new Server(httpServer, {
 		cors: {
-			origin: (origin, callback) => {
-				if (isOriginAllowed(origin)) {
-					callback(null, true);
-					return;
-				}
-				callback(new Error('Socket origin not allowed'));
-			},
+			origin: true,
 			methods: ['GET', 'POST'],
 			credentials: true,
+		},
+		allowRequest: (req, callback) => {
+			const requestOrigin = getRequestOrigin(req);
+			const originHeader = getHeaderFirstValue(req?.headers?.origin) || null;
+			if (isOriginAllowed(originHeader, requestOrigin)) {
+				callback(null, true);
+				return;
+			}
+			console.warn('Blocked socket connection from disallowed origin', {
+				origin: originHeader,
+				requestOrigin,
+			});
+			callback('Socket origin not allowed', false);
 		},
 		maxHttpBufferSize: SOCKET_MAX_HTTP_BUFFER_SIZE,
 	});
