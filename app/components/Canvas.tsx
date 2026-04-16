@@ -468,10 +468,17 @@ export default function Canvas() {
 					prevY: shapeStart.y,
 					color,
 					brushSize,
-					tool: tool as 'brush' | 'eraser' | 'fill',
+					tool: 'brush' as const,
 					shape: tool,
 				};
 				emitDraw(shapeData as DrawData);
+
+				// Draw the shape locally on the canvas
+				const canvas = canvasRef.current;
+				const ctx = canvas?.getContext('2d');
+				if (canvas && ctx) {
+					drawShape(ctx, shapeStart.x, shapeStart.y, shapePreview.x, shapePreview.y, tool, color, brushSize);
+				}
 			}
 
 			// Save to history after drawing action
